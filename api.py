@@ -10,7 +10,8 @@ from pydantic import BaseModel
 
 from vcbrain.config import settings
 from vcbrain.connect import generate_outreach
-from vcbrain.auth import current_user, issue_token, request_client_id, verify_credentials
+from vcbrain.auth import current_user, issue_token, request_client_id, verify_credentials, verify_google_id_token
+from vcbrain import db
 from vcbrain.models import FounderProfile
 from vcbrain.pipeline import run_maschmeyer_pipeline, run_pipeline
 from vcbrain.profiles import analyze_public_profiles
@@ -20,10 +21,15 @@ app = FastAPI(title="The VC Brain API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=list(settings.cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    db.init_db()
 
 
 class ScoutRequest(BaseModel):
@@ -34,6 +40,10 @@ class ScoutRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: str  # ID token que devuelve el botón "Sign in with Google"
 
 
 class ProfileRequest(BaseModel):
@@ -61,6 +71,12 @@ class OutreachRequest(BaseModel):
     evidence: list[str] = []
 
 
+class DecisionRequest(BaseModel):
+    company: str
+    name: str
+    state: str  # "forced" | "discarded" | "clear"
+
+
 @app.get("/api/health")
 def health():
     missing = settings.validate()
@@ -74,11 +90,31 @@ def health():
     }
 
 
+@app.get("/api/auth/config")
+def auth_config():
+    """Config pública para inicializar el botón de Google en el frontend
+    (el Client ID no es secreto, a diferencia del client secret)."""
+    return {"google_client_id": settings.google_client_id}
+
+
 @app.post("/api/auth/login")
 def login(req: LoginRequest, request: Request):
     if not verify_credentials(req.username, req.password, request_client_id(request)):
         raise HTTPException(status_code=401, detail="Usuario o contraseña inválidos.")
     return {"access_token": issue_token(req.username), "token_type": "bearer", "expires_in": settings.jwt_ttl_seconds}
+
+
+@app.post("/api/auth/google")
+def login_google(req: GoogleLoginRequest):
+    claims = verify_google_id_token(req.credential)
+    email = str(claims.get("email", ""))
+    db.upsert_google_user(
+        google_sub=str(claims.get("sub", "")),
+        email=email,
+        name=str(claims.get("name", "")),
+        picture=str(claims.get("picture", "")),
+    )
+    return {"access_token": issue_token(email), "token_type": "bearer", "expires_in": settings.jwt_ttl_seconds}
 
 
 @app.post("/api/scout")
@@ -93,6 +129,7 @@ def scout(req: ScoutRequest, _: str = Depends(current_user)):
             detail=f"Faltan variables de entorno: {', '.join(missing)}",
         )
     result = run_pipeline(query, max_results=req.max_results)
+    db.save_scan(result)
     return result.to_dict()
 
 
@@ -105,7 +142,17 @@ def scout_maschmeyer(max_results: int | None = None, _: str = Depends(current_us
             status_code=503,
             detail=f"Faltan variables de entorno: {', '.join(missing)}",
         )
-    return run_maschmeyer_pipeline(max_results=max_results).to_dict()
+    result = run_maschmeyer_pipeline(max_results=max_results)
+    db.save_scan(result)
+    return result.to_dict()
+
+
+@app.get("/api/scout/latest")
+def scout_latest(_: str = Depends(current_user)):
+    """Devuelve el último escaneo guardado, si existe — evita volver a pagar
+    el costo de una corrida completa solo por refrescar el navegador."""
+    result = db.get_latest_scan()
+    return {"result": result}
 
 
 @app.post("/api/outreach")
@@ -148,3 +195,20 @@ def translate_batch(req: BatchTranslationRequest, _: str = Depends(current_user)
         raise HTTPException(status_code=422, detail="Idioma no soportado.")
     translated = translate_many(tuple(req.texts), req.language)
     return {"texts": list(translated), "language": req.language}
+
+
+@app.get("/api/decisions")
+def list_decisions(_: str = Depends(current_user)):
+    """Anulaciones manuales (aprobar amarillo a la fuerza / descartar), \
+persistidas para que sobrevivan a un reload."""
+    return {"decisions": db.get_decisions()}
+
+
+@app.post("/api/decisions")
+def set_decision(req: DecisionRequest, _: str = Depends(current_user)):
+    if req.state not in {"forced", "discarded", "clear"}:
+        raise HTTPException(status_code=422, detail="state debe ser 'forced', 'discarded' o 'clear'.")
+    if not req.company.strip() or not req.name.strip():
+        raise HTTPException(status_code=422, detail="company y name son obligatorios.")
+    db.set_decision(req.company.strip(), req.name.strip(), req.state)
+    return {"ok": True}

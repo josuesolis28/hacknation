@@ -154,6 +154,8 @@ type Dict = {
   tabGeneral: string;
   tabInternal: string;
   manualApproval: string;
+  rescan: string;
+  orDivider: string;
 };
 
 export const copy: Record<Language, Dict> = {
@@ -297,6 +299,8 @@ export const copy: Record<Language, Dict> = {
     tabGeneral: "General information",
     tabInternal: "Internal breakdown",
     manualApproval: "Manually approved",
+    rescan: "Re-scan",
+    orDivider: "or",
   },
   es: {
     title: "Intake startups DACH",
@@ -438,6 +442,8 @@ export const copy: Record<Language, Dict> = {
     tabGeneral: "Información general",
     tabInternal: "Desglose interno",
     manualApproval: "Aprobada manualmente",
+    rescan: "Escanear de nuevo",
+    orDivider: "o",
   },
   de: {
     title: "DACH Startup Intake",
@@ -579,6 +585,8 @@ export const copy: Record<Language, Dict> = {
     tabGeneral: "Allgemeine Informationen",
     tabInternal: "Interne Aufschlüsselung",
     manualApproval: "Manuell genehmigt",
+    rescan: "Neu scannen",
+    orDivider: "oder",
   },
 };
 

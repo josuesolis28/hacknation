@@ -45,7 +45,7 @@ class Settings:
     openai_search_model: str = field(default_factory=lambda: os.getenv("OPENAI_SEARCH_MODEL", "gpt-4o"))
     # Modelo barato para traducción (no necesita razonamiento, solo idioma).
     openai_translate_model: str = field(
-        default_factory=lambda: os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-4o-mini")
+        default_factory=lambda: os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-5.4-mini")
     )
 
     search_max_results: int = field(default_factory=lambda: int(os.getenv("SEARCH_MAX_RESULTS", "8")))
@@ -54,6 +54,28 @@ class Settings:
     # Tope de costo estimado (USD) por corrida de búsqueda (Scout + Judge).
     # Al acercarse al límite se dejan de lanzar nuevas queries de búsqueda.
     max_search_cost_usd: float = field(default_factory=lambda: float(os.getenv("MAX_SEARCH_COST_USD", "2.0")))
+
+    # Postgres (Railway u otro host) para producción. Si se deja vacío, la
+    # app cae de vuelta a un archivo SQLite local (útil en desarrollo sin
+    # tener que levantar Postgres).
+    database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
+
+    # Orígenes permitidos por CORS, separados por coma. Agrega aquí tu URL
+    # de Vercel en producción (p. ej. https://tu-app.vercel.app).
+    cors_origins: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            o.strip()
+            for o in os.getenv(
+                "CORS_ORIGINS",
+                "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
+            ).split(",")
+            if o.strip()
+        )
+    )
+    # Client ID de OAuth de Google (público, no es secreto) para "Sign in with Google".
+    # Se crea en https://console.cloud.google.com/apis/credentials — tipo "Web application".
+    google_client_id: str = field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_ID", ""))
+
     admin_username: str = field(default_factory=lambda: os.getenv("VCBRAIN_ADMIN_USERNAME", "admin12345"))
     admin_password: str = field(default_factory=lambda: os.getenv("VCBRAIN_ADMIN_PASSWORD", "admin12345"))
     jwt_secret: str = field(default_factory=_stable_jwt_secret)

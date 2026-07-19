@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Check, FounderProfile } from "../types";
-import { generateOutreach } from "../api";
+import { DecisionState, generateOutreach } from "../api";
 import { useTranslatedFounder } from "../hooks/useTranslatedFounder";
 import {
   Language,
@@ -75,8 +75,6 @@ function CheckModal({ check, language, onClose }: { check: Check; language: Lang
   );
 }
 
-type Tab = "general" | "internal";
-
 function StartupModal({
   founder,
   language,
@@ -96,7 +94,6 @@ function StartupModal({
   onDiscard: () => void;
   onUndoDiscard: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("general");
   const [outreach, setOutreach] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [msgError, setMsgError] = useState<string | null>(null);
@@ -171,15 +168,6 @@ function StartupModal({
           </button>
         </div>
 
-        <div className="modal-tabs">
-          <button className={tab === "general" ? "active" : ""} onClick={() => setTab("general")}>
-            {text.tabGeneral}
-          </button>
-          <button className={tab === "internal" ? "active" : ""} onClick={() => setTab("internal")}>
-            {text.tabInternal}
-          </button>
-        </div>
-
         <div className="modal-scroll">
           <div className="profile-tiles">
             <article className="profile-tile">
@@ -205,8 +193,28 @@ function StartupModal({
             </article>
           </div>
 
-          {tab === "general" && (
-            <div className="card-body">
+          {/* Resumen financiero — arriba, referencial para todo el modal */}
+          <div className="modal-financial-strip">
+            <article className="capital-tile">
+              <span>{text.totalCapitalLabel}</span>
+              <strong>{founder.total_capital || founder.capital_raised || text.noPublicData}</strong>
+              <small>{text.publicSourcesOnly}</small>
+            </article>
+            <article className="capital-tile">
+              <span>{text.revenueLabel}</span>
+              <strong>{founder.revenue_signal || text.revenueEmpty}</strong>
+              <small>{text.publicSourcesOnly}</small>
+            </article>
+            <article className="capital-tile">
+              <span>{text.businessModel}</span>
+              <strong>{business}</strong>
+              <small>{text.b2bB2cHint}</small>
+            </article>
+          </div>
+
+          <div className="modal-columns">
+            {/* Izquierda: equipo (CTO, cofounders), pitch y evidencia pública */}
+            <div className="card-body modal-col">
               <h4>{text.origin}</h4>
               <p className="just">
                 {origin}
@@ -309,10 +317,9 @@ function StartupModal({
                 </>
               )}
             </div>
-          )}
 
-          {tab === "internal" && (
-            <div className="card-body">
+            {/* Derecha: análisis completo (rúbrica, gates, fondos, feedback) */}
+            <div className="card-body modal-col">
               <h4>{text.justification}</h4>
               <p className="just">{translated?.justification}</p>
 
@@ -345,25 +352,6 @@ function StartupModal({
                   </span>
                 </div>
               ))}
-
-              <h4>{text.capitalTitle}</h4>
-              <div className="capital-board">
-                <article className="capital-tile">
-                  <span>{text.totalCapitalLabel}</span>
-                  <strong>{founder.total_capital || founder.capital_raised || text.noPublicData}</strong>
-                  <small>{text.publicSourcesOnly}</small>
-                </article>
-                <article className="capital-tile">
-                  <span>{text.revenueLabel}</span>
-                  <strong>{founder.revenue_signal || text.revenueEmpty}</strong>
-                  <small>{text.publicSourcesOnly}</small>
-                </article>
-                <article className="capital-tile">
-                  <span>{text.businessModel}</span>
-                  <strong>{business}</strong>
-                  <small>{text.b2bB2cHint}</small>
-                </article>
-              </div>
 
               <h4>{text.fundingRoundsTitle}</h4>
               {founder.funding_rounds && founder.funding_rounds.length > 0 ? (
@@ -411,7 +399,7 @@ function StartupModal({
               {msgError && <div className="status error">{msgError}</div>}
               {outreach && <div className="outreach-box">{outreach}</div>}
             </div>
-          )}
+          </div>
         </div>
 
         <div className="modal-actions">
@@ -446,18 +434,33 @@ export function FounderCard({
   language,
   selected,
   onSelect,
+  initialDecision,
+  onDecisionChange,
 }: {
   founder: FounderProfile;
   language: Language;
   selected: boolean;
   onSelect: () => void;
+  initialDecision?: DecisionState;
+  onDecisionChange?: (company: string, name: string, state: DecisionState) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
-  const [forced, setForced] = useState(false);
+  const [forced, setForced] = useState(initialDecision === "forced");
   const [manualCheck, setManualCheck] = useState<Check | null>(null);
-  const [discarded, setDiscarded] = useState(false);
+  const [discarded, setDiscarded] = useState(initialDecision === "discarded");
   const text = copy[language];
+
+  // getDecisions() resuelve después del primer render — aplica la decisión
+  // persistida en cuanto llega, sin pisar un cambio local ya hecho.
+  useEffect(() => {
+    if (initialDecision === "forced" && !forced) {
+      setManualCheck(buildManualCheck(founder));
+      setForced(true);
+    }
+    if (initialDecision === "discarded" && !discarded) setDiscarded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDecision]);
 
   const backendApproved = founder.decision === "approved";
   const isApproved = backendApproved || forced;
@@ -482,6 +485,8 @@ export function FounderCard({
   const forceApprove = () => {
     setManualCheck(buildManualCheck(founder));
     setForced(true);
+    setDiscarded(false);
+    onDecisionChange?.(founder.company, founder.name, "forced");
   };
 
   return (
@@ -549,8 +554,12 @@ export function FounderCard({
           onDiscard={() => {
             setDiscarded(true);
             setModalOpen(false);
+            onDecisionChange?.(founder.company, founder.name, "discarded");
           }}
-          onUndoDiscard={() => setDiscarded(false)}
+          onUndoDiscard={() => {
+            setDiscarded(false);
+            onDecisionChange?.(founder.company, founder.name, "clear");
+          }}
         />
       )}
       {checkOpen && activeCheck && (

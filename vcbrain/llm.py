@@ -31,7 +31,7 @@ def _complete_openai(
     used_model = model or settings.openai_model
     response = client.chat.completions.create(
         model=used_model,
-        max_tokens=max_tokens,
+        max_completion_tokens=max_tokens,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},

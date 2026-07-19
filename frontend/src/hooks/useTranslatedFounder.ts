@@ -71,6 +71,12 @@ function original(founder: FounderProfile): TranslatedFounderText {
 // Cache de proceso: una tarjeta + idioma solo dispara una llamada de
 // traducción por lote, aunque el modal se abra/cierre varias veces.
 const cache = new Map<string, TranslatedFounderText>();
+// PitchPanel y el modal de la misma tarjeta pueden montarse casi al mismo
+// tiempo (ambos llaman a este hook para el founder seleccionado). Sin este
+// mapa, los dos disparaban su propia llamada a /api/translate/batch antes de
+// que la primera terminara y llenara `cache` — duplicando tokens gastados
+// por cada apertura. Ahora el segundo llamador espera la misma promesa.
+const inflight = new Map<string, Promise<TranslatedFounderText>>();
 
 /** Traduce en un solo request todos los campos de texto libre de un founder
  * (el backend genera justification/pitch/feedback/etc. siempre en español;
@@ -100,16 +106,23 @@ export function useTranslatedFounder(
 
     setResult(original(founder));
     let active = true;
-    void translateBatch(buildFields(founder), language)
-      .then(({ texts }) => {
-        if (!active) return;
-        const unpacked = unpack(founder, texts);
+
+    let promise = inflight.get(key);
+    if (!promise) {
+      promise = translateBatch(buildFields(founder), language).then(({ texts }) => unpack(founder, texts));
+      inflight.set(key, promise);
+      promise.finally(() => inflight.delete(key));
+    }
+
+    promise
+      .then((unpacked) => {
         cache.set(key, unpacked);
-        setResult(unpacked);
+        if (active) setResult(unpacked);
       })
       .catch(() => {
         if (active) setResult(original(founder));
       });
+
     return () => {
       active = false;
     };

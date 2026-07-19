@@ -132,6 +132,20 @@ class FounderProfile:
         return asdict(self)
 
 
+def founder_from_dict(d: dict) -> "FounderProfile":
+    """Reconstruye un FounderProfile desde un dict con la forma de
+    ``FounderProfile.to_dict()`` (usado para leer de vuelta lo fusionado en
+    la tabla ``companies``, ver vcbrain/db.py)."""
+    d = dict(d)
+    d["criteria"] = [CriterionScore(**c) for c in d.get("criteria") or []]
+    d["requirements"] = [Requirement(**r) for r in d.get("requirements") or []]
+    d["check"] = Check(**d["check"]) if d.get("check") else None
+    d["social_links"] = [SocialLink(**s) for s in d.get("social_links") or []]
+    d["team"] = [TeamMember(**t) for t in d.get("team") or []]
+    d["funding_rounds"] = [FundingRound(**fr) for fr in d.get("funding_rounds") or []]
+    return FounderProfile(**d)
+
+
 @dataclass
 class PipelineResult:
     """Resultado completo de una ejecución Scout → Judge → Score → Decide."""

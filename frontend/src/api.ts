@@ -77,6 +77,18 @@ export function login(username: string, password: string): Promise<{ access_toke
   }).then((r) => handle<{ access_token: string }>(r));
 }
 
+export function getAuthConfig(): Promise<{ google_client_id: string }> {
+  return fetch("/api/auth/config").then((r) => handle<{ google_client_id: string }>(r));
+}
+
+export function loginWithGoogle(credential: string): Promise<{ access_token: string }> {
+  return fetch("/api/auth/google", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ credential }),
+  }).then((r) => handle<{ access_token: string }>(r));
+}
+
 export function translateText(text: string, language: "es" | "en" | "de"): Promise<{ text: string }> {
   return fetch("/api/translate", {
     method: "POST",
@@ -98,4 +110,30 @@ export function translateBatch(
 
 export function fetchHealth(): Promise<{ default_language?: string; languages?: string[] }> {
   return fetch("/api/health").then((r) => handle<{ default_language?: string; languages?: string[] }>(r));
+}
+
+export function getLatestScan(): Promise<{ result: PipelineResult | null }> {
+  return fetch("/api/scout/latest", { headers: headers(false) }).then((r) =>
+    handle<{ result: PipelineResult | null }>(r),
+  );
+}
+
+export type DecisionState = "forced" | "discarded" | "clear";
+
+export function getDecisions(): Promise<{ decisions: Record<string, DecisionState> }> {
+  return fetch("/api/decisions", { headers: headers(false) }).then((r) =>
+    handle<{ decisions: Record<string, DecisionState> }>(r),
+  );
+}
+
+export function setDecision(company: string, name: string, state: DecisionState): Promise<{ ok: boolean }> {
+  return fetch("/api/decisions", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ company, name, state }),
+  }).then((r) => handle<{ ok: boolean }>(r));
+}
+
+export function decisionKey(company: string, name: string): string {
+  return `${company.trim().toLowerCase()}|${name.trim().toLowerCase()}`;
 }

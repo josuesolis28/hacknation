@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { clearAccessToken, fetchHealth, hasAccessToken, runMaschmeyerScout } from "./api";
+import {
+  DecisionState,
+  clearAccessToken,
+  decisionKey,
+  fetchHealth,
+  getDecisions,
+  getLatestScan,
+  hasAccessToken,
+  runMaschmeyerScout,
+  setDecision,
+} from "./api";
 import { AnalysisPhases, Stage } from "./components/AnalysisPhases";
 import { FounderCard } from "./components/FounderCard";
 import { Login } from "./components/Login";
@@ -13,7 +23,19 @@ function Workspace() {
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState<Language>(() => loadLanguage("en"));
   const [selected, setSelected] = useState<FounderProfile | null>(null);
+  const [decisions, setDecisions] = useState<Record<string, DecisionState>>({});
   const text = copy[language];
+
+  const updateDecision = (company: string, name: string, state: DecisionState) => {
+    const key = decisionKey(company, name);
+    setDecisions((prev) => {
+      const next = { ...prev };
+      if (state === "clear") delete next[key];
+      else next[key] = state;
+      return next;
+    });
+    void setDecision(company, name, state);
+  };
 
   useEffect(() => {
     saveLanguage(language);
@@ -32,22 +54,44 @@ function Workspace() {
       .catch(() => undefined);
   }, []);
 
+  const rescan = async () => {
+    setError(null);
+    setStage("detecting");
+    const timer1 = window.setTimeout(() => setStage("analyzing_ux"), 750);
+    const timer2 = window.setTimeout(() => setStage("validating"), 1600);
+    try {
+      const pipeline = await runMaschmeyerScout();
+      setResult(pipeline);
+      setSelected(pipeline.founders[0] ?? null);
+      setStage("complete");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      window.clearTimeout(timer1);
+      window.clearTimeout(timer2);
+    }
+  };
+
   useEffect(() => {
+    void getDecisions()
+      .then(({ decisions }) => setDecisions(decisions))
+      .catch(() => undefined);
+
     const run = async () => {
-      setStage("detecting");
-      const timer1 = window.setTimeout(() => setStage("analyzing_ux"), 750);
-      const timer2 = window.setTimeout(() => setStage("validating"), 1600);
+      // Reusa el último escaneo guardado si existe — evita repetir una
+      // corrida completa (y su costo) solo por refrescar el navegador.
       try {
-        const pipeline = await runMaschmeyerScout();
-        setResult(pipeline);
-        setSelected(pipeline.founders[0] ?? null);
-        setStage("complete");
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        window.clearTimeout(timer1);
-        window.clearTimeout(timer2);
+        const { result: cached } = await getLatestScan();
+        if (cached && cached.founders.length > 0) {
+          setResult(cached);
+          setSelected(cached.founders[0] ?? null);
+          setStage("complete");
+          return;
+        }
+      } catch {
+        /* si falla, sigue con un escaneo nuevo */
       }
+      await rescan();
     };
     void run();
   }, []);
@@ -78,6 +122,9 @@ function Workspace() {
             <option value="es">ES</option>
             <option value="de">DE</option>
           </select>
+          <button className="ghost" onClick={() => void rescan()} disabled={stage !== "complete"}>
+            {text.rescan}
+          </button>
           <button
             className="ghost"
             onClick={() => {
@@ -157,6 +204,8 @@ function Workspace() {
                 language={language}
                 selected={selected?.name === founder.name && selected?.company === founder.company}
                 onSelect={() => setSelected(founder)}
+                initialDecision={decisions[decisionKey(founder.company, founder.name)]}
+                onDecisionChange={updateDecision}
               />
             ))}
           </div>

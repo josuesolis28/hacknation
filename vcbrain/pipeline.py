@@ -1,16 +1,40 @@
-"""Orquestador: Scout → Judge/Score → Decide → (Connect bajo demanda)."""
+"""Orquestador: Scout → Judge/Score → Decide → Dedup/Merge → (Connect bajo demanda)."""
 
 import logging
 
+from . import db
 from .config import settings
 from .cost import CostTracker
 from .decision import decide
 from .judge import judge
-from .models import PipelineResult
+from .models import FounderProfile, PipelineResult, founder_from_dict
 from .search import scout, scout_maschmeyer
 from .thesis import maschmeyer_scope_label
 
 logger = logging.getLogger(__name__)
+
+
+def _decide_and_merge(founders: list[FounderProfile]) -> list[FounderProfile]:
+    """Aplica el semáforo/aprobación y fusiona cada startup contra lo que ya
+    se había monitoreado en corridas anteriores (tabla ``companies``): si ya
+    existía, no se duplica — se le agregan los campos/listas que esta
+    corrida encontró y antes no se habían contemplado, y se vuelve a decidir
+    con la evidencia combinada. Si es nueva, se registra tal cual."""
+    merged: list[FounderProfile] = []
+    new_count = 0
+    for founder in founders:
+        decided = decide(founder)
+        try:
+            merged_dict, is_new = db.merge_company(decided.to_dict())
+            result_founder = decide(founder_from_dict(merged_dict))
+            new_count += 1 if is_new else 0
+        except Exception as exc:  # la persistencia no debe tumbar el pipeline
+            logger.warning("No se pudo fusionar %s contra companies: %s", decided.company, exc)
+            result_founder = decided
+        merged.append(result_founder)
+    if merged:
+        logger.info("Dedup: %d nuevas, %d ya monitoreadas (fusionadas)", new_count, len(merged) - new_count)
+    return merged
 
 
 def run_pipeline(query: str, max_results: int | None = None) -> PipelineResult:
@@ -32,7 +56,7 @@ def run_pipeline(query: str, max_results: int | None = None) -> PipelineResult:
 
     try:
         founders, result.provider_used = judge(query, result.raw_hits, budget=budget)
-        result.founders = [decide(f) for f in founders]
+        result.founders = _decide_and_merge(founders)
     except Exception as exc:
         result.errors.append(f"Judge (LLM) falló: {exc}")
 
@@ -60,7 +84,7 @@ def run_maschmeyer_pipeline(max_results: int | None = None) -> PipelineResult:
 
     try:
         founders, result.provider_used = judge(query, result.raw_hits, budget=budget)
-        result.founders = [decide(founder) for founder in founders]
+        result.founders = _decide_and_merge(founders)
     except Exception as exc:
         result.errors.append(f"Judge (LLM) falló: {exc}")
 

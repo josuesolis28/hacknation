@@ -82,3 +82,25 @@ def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bear
 
 def request_client_id(request: Request) -> str:
     return request.client.host if request.client else "unknown"
+
+
+def verify_google_id_token(credential: str) -> dict:
+    """Verifica el ID token que devuelve el botón "Sign in with Google" del
+    frontend (Google Identity Services). No hay client secret involucrado:
+    el token ya viene firmado por Google, solo se valida la firma y la
+    audiencia (nuestro Client ID) contra las claves públicas de Google."""
+    if not settings.google_client_id:
+        raise HTTPException(status_code=503, detail="GOOGLE_CLIENT_ID no está configurado en el servidor.")
+    from google.auth.transport import requests as google_requests
+    from google.oauth2 import id_token as google_id_token
+
+    try:
+        claims = google_id_token.verify_oauth2_token(
+            credential, google_requests.Request(), audience=settings.google_client_id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=f"Token de Google inválido: {exc}")
+
+    if not claims.get("email_verified", False):
+        raise HTTPException(status_code=401, detail="El correo de Google no está verificado.")
+    return claims
