@@ -83,7 +83,11 @@ type Dict = {
   socialFacebook: string;
   socialGithub: string;
   socialWebsite: string;
+  socialReddit: string;
+  socialDiscord: string;
+  socialSlack: string;
   socialOther: string;
+  communityLinks: string;
   fundInvite: string;
   metricsTitle: string;
   metricsEmpty: string;
@@ -222,7 +226,11 @@ export const copy: Record<Language, Dict> = {
     socialFacebook: "Facebook",
     socialGithub: "GitHub",
     socialWebsite: "Website",
+    socialReddit: "Reddit",
+    socialDiscord: "Discord",
+    socialSlack: "Slack",
     socialOther: "Other",
+    communityLinks: "Community & links",
     fundInvite: "INTAKE FORM · PUBLIC SIGNALS",
     metricsTitle: "Company, email, section, round and pitch",
     metricsEmpty: "Select a DACH startup on the left to fill the intake fields.",
@@ -359,7 +367,11 @@ export const copy: Record<Language, Dict> = {
     socialFacebook: "Facebook",
     socialGithub: "GitHub",
     socialWebsite: "Sitio web",
+    socialReddit: "Reddit",
+    socialDiscord: "Discord",
+    socialSlack: "Slack",
     socialOther: "Otra",
+    communityLinks: "Comunidad y enlaces",
     fundInvite: "FORMULARIO DE INTAKE · SEÑALES PÚBLICAS",
     metricsTitle: "Empresa, email, sección, ronda y pitch",
     metricsEmpty: "Selecciona una startup DACH a la izquierda para completar los campos del formulario.",
@@ -496,7 +508,11 @@ export const copy: Record<Language, Dict> = {
     socialFacebook: "Facebook",
     socialGithub: "GitHub",
     socialWebsite: "Website",
+    socialReddit: "Reddit",
+    socialDiscord: "Discord",
+    socialSlack: "Slack",
     socialOther: "Andere",
+    communityLinks: "Community & Links",
     fundInvite: "INTAKE-FORMULAR · ÖFFENTLICHE SIGNALE",
     metricsTitle: "Unternehmen, E-Mail, Sektion, Runde und Pitch",
     metricsEmpty: "Wähle links ein DACH-Startup, um die Formularfelder zu füllen.",
@@ -678,6 +694,23 @@ export function criterionLabel(name: string, language: Language): string {
 
 export function requirementLabel(name: string, language: Language): string {
   return REQUIREMENT_LABELS[name]?.[language] ?? name;
+}
+
+export function platformLabel(platform: string, language: Language): string {
+  const t = copy[language];
+  switch ((platform || "").toLowerCase()) {
+    case "linkedin": return t.socialLinkedIn;
+    case "instagram": return t.socialInstagram;
+    case "x":
+    case "twitter": return t.socialX;
+    case "facebook": return t.socialFacebook;
+    case "github": return t.socialGithub;
+    case "website": return t.socialWebsite;
+    case "reddit": return t.socialReddit;
+    case "discord": return t.socialDiscord;
+    case "slack": return t.socialSlack;
+    default: return platform || t.socialOther;
+  }
 }
 
 export function relationshipLabel(relationship: string | undefined, language: Language): string {

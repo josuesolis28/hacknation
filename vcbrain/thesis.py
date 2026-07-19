@@ -64,6 +64,17 @@ DISCOVERY_SOURCES = (
     "Series A",
 )
 
+# Comunidades donde founders early-stage se mueven y anuncian tracción antes
+# de tener cobertura de prensa — se suman a los términos de descubrimiento en
+# vez de generar queries nuevas (cada query cuesta, ver vcbrain/cost.py).
+COMMUNITY_SOURCES = (
+    "reddit.com/r/startups",
+    "reddit.com/r/Entrepreneur",
+    "Discord community",
+    "Slack community",
+    "Product Hunt",
+)
+
 
 def maschmeyer_queries() -> list[str]:
     """Dos consultas por sección (cubren los 3 países DACH en el mismo texto)
@@ -71,6 +82,7 @@ def maschmeyer_queries() -> list[str]:
     OpenAI es cara (tokens de contexto + tarifa por llamada), así que se
     evita triplicar el número de queries sin perder cobertura de la tesis."""
     source_terms = " OR ".join(f'"{source}"' for source in DISCOVERY_SOURCES)
+    community_terms = " OR ".join(f'"{source}"' for source in COMMUNITY_SOURCES)
     queries = []
     for section in MVP_SECTIONS:
         queries.append(
@@ -80,7 +92,8 @@ def maschmeyer_queries() -> list[str]:
         )
         queries.append(
             f'"{section}" startup founder DACH OR "Germany" OR Switzerland OR Austria '
-            f'email OR contact OR raising OR pitch'
+            f'email OR contact OR raising OR pitch '
+            f'(LinkedIn OR Instagram OR website OR {community_terms})'
         )
     return queries
 

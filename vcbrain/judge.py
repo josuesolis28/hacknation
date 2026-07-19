@@ -95,10 +95,14 @@ público y verificable, úsalo. Si no hay email público, "".
 - round_size: exactamente uno de los buckets EUR, o "" si no hay dato.
 - pitch: pitch / one-liner público si aparece.
 - other_info: otra info útil (clientes, tracción, aceleradora, etc.).
-- skills, area, social_links (prioriza LinkedIn, Instagram, website con URL),
+- skills, area, social_links (prioriza LinkedIn, Instagram y website; incluye \
+también comunidades cuando aparezcan — hilos de Reddit, servidores de Discord \
+o canales/workspaces de Slack públicos — con platform: "reddit"|"discord"|"slack"),
   capital_raised, capital_note, clients, business_model, impact_summary,
   impact_metrics, incubation_program: solo con evidencia.
-- team: lista de founders/cofounders [{{"name","role","relationship":"founder|cofounder|executive","skills":[],"area":"","profile_url":""}}].
+- team: TODOS los founders/cofounders/ejecutivos identificables de la misma \
+empresa (no solo el founder principal) — CEO, CTO, COO, Head of..., etc. \
+[{{"name","role","relationship":"founder|cofounder|executive","skills":[],"area":"","profile_url":""}}].
 - total_capital: capital total levantado si aparece (p. ej. "EUR 3.2 mio").
 - funding_rounds: fondos/inversores [{{"investor","amount","round_name","date"}}].
 - revenue_signal: ARR, revenue o tracción económica pública si existe.
@@ -110,6 +114,16 @@ Reglas:
 3. No inventes business_email ni round_size.
 4. feedback: 3-5 acciones concretas si faltan datos del formulario.
 5. Intenta 3-8 candidatos cuando las fuentes lo permitan.
+6. Equipo completo: busca activamente a más de un fundador por startup — si \
+las fuentes mencionan un CTO, COO u otro cofounder, inclúyelos en "team" \
+relacionados a la misma empresa, no solo al contacto principal.
+7. Tracción inferida: si las fuentes mencionan capital levantado y una cifra \
+de impacto/alcance (usuarios, ingresos, personas o negocios impactados) pero \
+NO nombran clientes explícitos, no inventes nombres de clientes — registra el \
+dato en impact_summary/impact_metrics y sube moderadamente el criterio \
+"validation", pero deja explícito en su rationale que la tracción es \
+*inferida* a partir de capital/impacto declarado, no confirmada por clientes \
+nombrados.
 
 Responde ÚNICAMENTE con JSON válido, sin markdown:
 {{
@@ -141,7 +155,7 @@ Responde ÚNICAMENTE con JSON válido, sin markdown:
       "feedback": ["acción concreta", "..."],
       "skills": ["habilidad1"],
       "area": "string",
-      "social_links": [{{"platform": "linkedin", "url": "https://...", "label": "LinkedIn"}}],
+      "social_links": [{{"platform": "linkedin | instagram | x | website | reddit | discord | slack | other", "url": "https://...", "label": "LinkedIn"}}],
       "capital_raised": "string",
       "capital_note": "string",
       "clients": ["cliente"],

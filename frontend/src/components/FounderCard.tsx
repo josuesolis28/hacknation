@@ -8,6 +8,7 @@ import {
   copy,
   criterionLabel,
   originLabel,
+  platformLabel,
   relationshipLabel,
   requirementLabel,
   trafficDescription,
@@ -285,6 +286,26 @@ function StartupModal({
                       {url}
                     </a>
                   ))}
+                </>
+              )}
+
+              {founder.social_links && founder.social_links.length > 0 && (
+                <>
+                  <h4>{text.communityLinks}</h4>
+                  <div className="social-grid">
+                    {founder.social_links.map((link) => (
+                      <a
+                        className={`social-card platform-${(link.platform || "other").toLowerCase()}`}
+                        key={link.url}
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <span>{platformLabel(link.platform, language)}</span>
+                        <strong>{link.label || platformLabel(link.platform, language)}</strong>
+                      </a>
+                    ))}
+                  </div>
                 </>
               )}
             </div>
