@@ -3,8 +3,8 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "source": "/api/:path*",
+      "destination": "https://hacknation-production-c4c8.up.railway.app/api/:path*"
     },
     {
       "source": "/(.*)",
