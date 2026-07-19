@@ -1,67 +1,90 @@
-"""Tesis de scouting automatizada para Maschmeyer Group.
+"""Tesis MVP: startups based in Germany, Switzerland and Austria (DACH).
 
-La tesis se basa en la información pública del grupo y se complementa con
-las fuentes de deal-flow del documento de trabajo entregado por el equipo.
+Secciones y tamaños de ronda alineados al formulario de intake del fondo.
 """
 
-MASCHMEYER_SECTORS = (
-    "B2B SaaS",
-    "FinTech",
-    "InsurTech",
-    "HealthTech",
-    "RegTech",
-    "Cyber Security",
-    "New Work",
+# Secciones exactas del formulario (requisito de clasificación).
+MVP_SECTIONS = (
+    "HealthTech & MedTech",
+    "FinTech & InsurTech",
+    "Food & AgTech",
+    "Logistics & Supply Chain",
+    "HR Tech",
+    "LegalTech & RegTech",
+    "Retail & E-Commerce",
+    "EdTech",
+    "CleanTech & Energy",
+    "PropTech & Construction",
+    "Cybersecurity",
+)
+
+# Alias históricos / internos → se mapean a MVP_SECTIONS en el judge.
+MASCHMEYER_SECTORS = MVP_SECTIONS
+
+# País base obligatorio para este MVP (no US / LatAm / resto de Europa).
+DACH_COUNTRIES = (
+    ("Germany", "DE"),
+    ("Switzerland", "CH"),
+    ("Austria", "AT"),
 )
 
 TARGET_REGIONS = (
-    "United States",
-    "Europe",
-    "Latin America",
+    "Germany",
+    "Switzerland",
+    "Austria",
+    "DACH",
 )
 
-# Fuentes abiertas o con páginas públicas que suelen exponer señales de
-# startup temprana. Las bases cerradas (Crunchbase, Harmonic, PitchBook,
-# LinkedIn Sales Navigator) se mantienen como enriquecimiento externo.
+PRIORITY_COUNTRIES = DACH_COUNTRIES
+
+# Tamaños de ronda del formulario: "How big is the round you are raising?"
+ROUND_SIZES = (
+    "< EUR 1 mio",
+    "EUR 1-2 mio",
+    "EUR 2-3 mio",
+    "EUR 3-4 mio",
+    "EUR 4-5 mio",
+    "> EUR 5 mio",
+)
+
 DISCOVERY_SOURCES = (
-    "Y Combinator",
-    "Techstars",
-    "Antler",
-    "F6S",
-    "Product Hunt",
-    "OpenVC",
     "EU-Startups",
-    "Latitud",
-    "Start-Up Chile",
-    "500 Global",
-    "Founder Institute",
-    "Wayra",
+    "German Accelerator",
+    "Techstars Berlin",
+    "Startup Autobahn",
+    "High-Tech Gründerfonds",
+    "Swiss Startup Association",
+    "Venture Kick",
+    "Austria Wirtschaftsservice",
+    "aws Gründung",
+    "F6S",
+    "OpenVC",
     "demo day",
-    "startup accelerator",
+    "seed round",
+    "Series A",
 )
 
 
 def maschmeyer_queries() -> list[str]:
-    """Genera una consulta por combinación de vertical y región.
-
-    Mantener las combinaciones separadas evita que FinTech o EE. UU. absorban
-    todos los resultados y permite cubrir la tesis completa en cada ejecución.
-    """
+    """Una consulta por sección × país DACH para no sesgar un vertical."""
     source_terms = " OR ".join(f'"{source}"' for source in DISCOVERY_SOURCES)
-    return [
-        (
-            f'"{sector}" startup founder pre-seed OR seed "{region}" '
-            f'raising OR launched OR cohort ({source_terms})'
+    queries = []
+    for section in MVP_SECTIONS:
+        for country in ("Germany", "Switzerland", "Austria"):
+            queries.append(
+                f'"{section}" startup OR founder "{country}" '
+                f'(raising OR fundraising OR "seed round" OR "Series A" OR pitch) '
+                f'({source_terms})'
+            )
+        queries.append(
+            f'"{section}" startup founder DACH OR "Germany" OR Switzerland OR Austria '
+            f'email OR contact OR raising OR pitch'
         )
-        for sector in MASCHMEYER_SECTORS
-        for region in TARGET_REGIONS
-    ]
+    return queries
 
 
 def maschmeyer_scope_label() -> str:
     return (
-        "Maschmeyer Group: "
-        + ", ".join(MASCHMEYER_SECTORS)
-        + " | Regiones: "
-        + ", ".join(TARGET_REGIONS)
+        "DACH MVP: Germany, Switzerland, Austria | Sections: "
+        + ", ".join(MVP_SECTIONS)
     )

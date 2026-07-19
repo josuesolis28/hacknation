@@ -46,6 +46,43 @@ class Check:
 
 
 @dataclass
+class SocialLink:
+    """Enlace a red social pública verificada en fuentes."""
+    platform: str   # linkedin | instagram | x | twitter | website | other
+    url: str
+    label: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class TeamMember:
+    """Founder / cofounder / ejecutivo identificado en fuentes públicas."""
+    name: str
+    role: str
+    relationship: str = "founder"  # founder | cofounder | executive | advisor
+    skills: list[str] = field(default_factory=list)
+    area: str = ""
+    profile_url: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class FundingRound:
+    """Ronda o fondo participante con monto público si existe."""
+    investor: str
+    amount: str = ""
+    round_name: str = ""
+    date: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
 class FounderProfile:
     """Un fundador/startup evaluado contra la rúbrica pre-seed del fondo."""
     name: str
@@ -59,8 +96,37 @@ class FounderProfile:
     signals: list[str] = field(default_factory=list)
     contact_hint: str = ""
     decision: str = "rejected"               # "approved" | "rejected"
-    feedback: list[str] = field(default_factory=list)  # qué falta / qué mejorar
-    check: Check | None = None               # solo si decision == "approved"
+    feedback: list[str] = field(default_factory=list)
+    check: Check | None = None
+    country: str = ""
+    country_code: str = ""
+    origin_region: str = ""
+    origin_confidence: str = "unknown"
+    skills: list[str] = field(default_factory=list)
+    area: str = ""
+    social_links: list[SocialLink] = field(default_factory=list)
+    capital_raised: str = ""
+    capital_note: str = ""
+    clients: list[str] = field(default_factory=list)
+    business_model: str = ""
+    impact_summary: str = ""
+    impact_metrics: list[str] = field(default_factory=list)
+    incubation_program: str = ""
+    tec_related: bool = False
+    business_email: str = ""
+    section: str = ""
+    activity_summary: str = ""
+    round_size: str = ""
+    pitch: str = ""
+    other_info: str = ""
+    # Semáforo de elegibilidad: green | yellow | red
+    traffic_light: str = "red"
+    # Equipo: founders / cofounders
+    team: list[TeamMember] = field(default_factory=list)
+    # Capital e inversores
+    total_capital: str = ""
+    funding_rounds: list[FundingRound] = field(default_factory=list)
+    revenue_signal: str = ""                 # ARR / revenue / facturación pública
 
     def to_dict(self) -> dict:
         return asdict(self)

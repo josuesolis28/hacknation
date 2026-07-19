@@ -1,7 +1,12 @@
-"""Capa de decisión: valida requisitos + score ponderado y ejecuta la salida.
+"""Capa de decisión: semáforo + aprobación instantánea.
 
-- APROBADO  → se genera automáticamente un cheque de $100,000 USD del fondo.
-- RECHAZADO → se conserva el feedback automático (qué falta y qué mejorar).
+Semáforo (traffic_light):
+- green  → candidato: gates críticos cumplidos y score ≥ umbral
+- yellow → potencial: DACH ok y score/gates parciales
+- red    → no cumple de plano (fuera de tesis o score/gates muy bajos)
+
+- APROBADO  → cheque $100k (solo green + decision rules)
+- RECHAZADO → feedback de qué falta
 """
 
 import secrets
@@ -12,6 +17,11 @@ from .models import Check, FounderProfile
 
 FUND_NAME = "Maschmeyer Group Ventures"
 CHECK_AMOUNT_USD = 100_000
+
+# Umbrales del semáforo (estándar MVP)
+GREEN_SCORE = APPROVAL_THRESHOLD  # 70
+YELLOW_SCORE = 45
+YELLOW_GATE_RATIO = 0.4  # al menos 40% de gates cumplidos para amarillo
 
 
 def _new_check(founder: FounderProfile) -> Check:
@@ -26,24 +36,61 @@ def _new_check(founder: FounderProfile) -> Check:
     )
 
 
+def _is_dach(founder: FounderProfile) -> bool:
+    return founder.country_code in {"DE", "CH", "AT"} or founder.country in {
+        "Germany",
+        "Switzerland",
+        "Austria",
+    }
+
+
+def assign_traffic_light(founder: FounderProfile) -> str:
+    """Asigna semáforo según ponderación y gates."""
+    if not _is_dach(founder):
+        return "red"
+
+    total_gates = len(founder.requirements) or 1
+    met = sum(1 for r in founder.requirements if r.met)
+    ratio = met / total_gates
+    score = founder.founder_score
+    all_met = met == total_gates and bool(founder.requirements)
+
+    if all_met and score >= GREEN_SCORE:
+        return "green"
+    if score >= YELLOW_SCORE and ratio >= YELLOW_GATE_RATIO:
+        return "yellow"
+    if score >= YELLOW_SCORE and founder.section:
+        return "yellow"
+    return "red"
+
+
 def decide(founder: FounderProfile) -> FounderProfile:
-    """Aplica la regla de aprobación instantánea sobre un perfil evaluado."""
+    """Aplica semáforo y regla de aprobación instantánea."""
+    founder.traffic_light = assign_traffic_light(founder)
+
     all_gates_met = all(r.met for r in founder.requirements) and founder.requirements
     score_ok = founder.founder_score >= APPROVAL_THRESHOLD
 
-    if all_gates_met and score_ok:
+    if founder.traffic_light == "green" and all_gates_met and score_ok:
         founder.decision = "approved"
         founder.check = _new_check(founder)
-        founder.feedback = []  # aprobado: no aplica feedback de rechazo
+        founder.feedback = []
     else:
         founder.decision = "rejected"
         founder.check = None
-        # Garantiza que el feedback siempre explique el porqué
         reasons = []
+        if founder.traffic_light == "red":
+            reasons.append(
+                "Semáforo rojo: no cumple los criterios base (DACH / score / gates)."
+            )
+        elif founder.traffic_light == "yellow":
+            reasons.append(
+                "Semáforo amarillo: hay potencial, pero aún no califica como candidato."
+            )
         if not score_ok:
             reasons.append(
                 f"El score ponderado ({founder.founder_score}/100) está por "
-                f"debajo del umbral de aprobación del fondo ({APPROVAL_THRESHOLD})."
+                f"debajo del umbral ({APPROVAL_THRESHOLD})."
             )
         for req in founder.requirements:
             if not req.met:

@@ -36,25 +36,43 @@ npm install
 npm run dev
 ```
 
-## Sourcing automático Maschmeyer Group
+## Sourcing automático MVP DACH
 
-Al abrir el frontend, el Scout inicia automáticamente la tesis de Maschmeyer
-Group; no requiere que el usuario escriba ni ejecute una búsqueda. Cubre
-pre-seed/seed en Estados Unidos, Europa y Latinoamérica para B2B SaaS,
-FinTech, InsurTech, HealthTech, RegTech, ciberseguridad y New Work.
-
-El endpoint también puede consumirse desde un CRM, un scheduler o cualquier
-cliente HTTP:
+Al abrir el frontend, el Scout inicia automáticamente la tesis **DACH**:
+solo startups **based in Germany, Switzerland or Austria**. Clasifica en las
+secciones del formulario (HealthTech & MedTech, FinTech & InsurTech, Food &
+AgTech, Logistics & Supply Chain, HR Tech, LegalTech & RegTech, Retail &
+E-Commerce, EdTech, CleanTech & Energy, PropTech & Construction, Cybersecurity)
+y busca campos de intake: nombre de empresa, email de negocio, origen,
+resumen de actividad, tamaño de ronda (`< EUR 1 mio` … `> EUR 5 mio`), pitch
+y otra información pública.
 
 ```bash
-curl -X POST "http://localhost:8000/api/scout/maschmeyer?max_results=3"
+curl -X POST "http://localhost:8000/api/scout/maschmeyer?max_results=3" \
+  -H "Authorization: Bearer <token>"
 ```
 
-La búsqueda combina fuentes de señal temprana incluidas en el documento de
-sourcing: aceleradoras, demo days, F6S, Product Hunt y comunidades de
-founders. Las fuentes comerciales como Harmonic, Crunchbase, PitchBook y
-LinkedIn Sales Navigator se pueden añadir después como conectores de
-enriquecimiento.
+La búsqueda usa fuentes EU/DACH (EU-Startups, German Accelerator, Venture Kick,
+HTGF, etc.). Email y tamaño de ronda solo se rellenan si aparecen en fuentes
+públicas (no se inventan).
+
+## Acceso B2B y perfiles
+
+La interfaz solicita inicio de sesión antes de consultar cualquier dato de
+scouting. Para el entorno local inicial usa `admin12345` / `admin12345`; cambia
+`VCBRAIN_ADMIN_PASSWORD` y `VCBRAIN_JWT_SECRET` en `.env` antes de desplegar.
+
+El selector de idioma (EN / ES / DE) se guarda en el navegador y también puede
+definirse con `VCBRAIN_DEFAULT_LANGUAGE`. Cada presentación muestra origen
+DACH (DE / CH / AT), sección del formulario, email de negocio y tamaño de
+ronda cuando hay evidencia pública.
+
+El botón **Analizar nodos de perfil y fuentes** construye una red de fundador,
+CTO y ejecutivos mediante resultados públicos indexados y muestra citas con
+enlaces verificables. No inicia sesión ni extrae contenido privado de
+LinkedIn, Instagram o X. Las traducciones dinámicas al inglés y alemán se
+realizan con el LLM una sola vez por texto e idioma durante la ejecución y se
+reutilizan desde caché.
 
 ## Variables de entorno (`.env`)
 
@@ -65,6 +83,9 @@ enriquecimiento.
 | `LLM_PROVIDER` | `openai` (default) |
 | `OPENAI_MODEL` | Modelo (default: `gpt-4o`) |
 | `TAVILY_MAX_RESULTS` | Resultados por consulta (default 8) |
+| `VCBRAIN_ADMIN_USERNAME` | Usuario local (default `admin12345`) |
+| `VCBRAIN_ADMIN_PASSWORD` | Contraseña local (default `admin12345`) |
+| `VCBRAIN_DEFAULT_LANGUAGE` | Idioma UI: `en` \| `es` \| `de` (default `en`) |
 
 ## Flujo de uso
 

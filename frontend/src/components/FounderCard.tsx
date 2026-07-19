@@ -1,14 +1,68 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FounderProfile } from "../types";
-import { generateOutreach } from "../api";
+import { generateOutreach, translateText } from "../api";
+import {
+  Language,
+  confidenceLabel,
+  copy,
+  originLabel,
+  relationshipLabel,
+  trafficDescription,
+  trafficLabel,
+} from "../i18n";
 
-export function FounderCard({ founder }: { founder: FounderProfile }) {
+export function FounderCard({
+  founder,
+  language,
+  selected,
+  onSelect,
+  onAnalyze,
+}: {
+  founder: FounderProfile;
+  language: Language;
+  selected: boolean;
+  onSelect: () => void;
+  onAnalyze: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [outreach, setOutreach] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [msgError, setMsgError] = useState<string | null>(null);
-
+  const [translatedJustification, setTranslatedJustification] = useState(founder.justification);
+  const text = copy[language];
   const approved = founder.decision === "approved";
+  const origin = originLabel(founder, language);
+  const confidence = confidenceLabel(founder.origin_confidence, language);
+  const skills = founder.skills?.length ? founder.skills : founder.signals.slice(0, 4);
+  const area = founder.section || founder.area || founder.signals[0] || "—";
+  const email = founder.business_email || founder.contact_hint || "—";
+  const round = founder.round_size || founder.capital_raised || "—";
+  const light = founder.traffic_light || "red";
+  const lightLabel = trafficLabel(light, language);
+  const lightDesc = trafficDescription(light, language);
+  const team = founder.team?.length
+    ? founder.team
+    : founder.name
+      ? [{ name: founder.name, role: founder.role || text.relFounder, relationship: "founder", skills: founder.skills || [], area: founder.area || founder.section || "", profile_url: "" }]
+      : [];
+
+  useEffect(() => {
+    if (language === "es") {
+      setTranslatedJustification(founder.justification);
+      return;
+    }
+    let active = true;
+    void translateText(founder.justification, language)
+      .then((value) => {
+        if (active) setTranslatedJustification(value.text);
+      })
+      .catch(() => {
+        if (active) setTranslatedJustification(founder.justification);
+      });
+    return () => {
+      active = false;
+    };
+  }, [founder.justification, language]);
 
   const onOutreach = async () => {
     setLoadingMsg(true);
@@ -24,36 +78,143 @@ export function FounderCard({ founder }: { founder: FounderProfile }) {
   };
 
   return (
-    <div className={`founder-card ${approved ? "approved" : ""}`}>
-      <div className="card-head" onClick={() => setOpen(!open)}>
+    <div
+      className={`founder-card ${approved ? "approved" : ""} ${selected ? "selected" : ""}`}
+      onClick={onSelect}
+    >
+      <div
+        className="card-head"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+          setOpen(!open);
+        }}
+      >
         <div className="score-badge">
           <span className="num">{founder.founder_score}</span>
           <span className="of">/ 100</span>
         </div>
+        <span className={`traffic-light traffic-${light}`} title={lightDesc}>
+          <span className="traffic-dot" />
+          {lightLabel}
+        </span>
         <div className="head-info">
-          <h3>{founder.name}</h3>
+          <h3>{founder.company}</h3>
           <p>
-            {founder.company}
+            {founder.name}
             {founder.role ? ` · ${founder.role}` : ""}
+            {email !== "—" ? ` · ${email}` : ""}
           </p>
+          <span
+            className={`origin-badge ${founder.country_code || founder.origin_region || "unknown"}`}
+            title={`${text.origin}: ${origin} (${confidence})`}
+          >
+            {founder.country_code || origin} · {confidence}
+          </span>
+          {founder.section && <span className="section-badge">{founder.section}</span>}
         </div>
         <span className={`decision-pill ${founder.decision}`}>
-          {approved ? "✓ APROBADO — $100K" : "✗ NO CALIFICA"}
+          {approved ? text.approved : text.rejected}
         </span>
         <span className="chev">{open ? "▲" : "▼"}</span>
       </div>
 
-      {open && (
-        <div className="card-body">
-          <h4>Justificación</h4>
-          <p className="just">{founder.justification}</p>
+      <div className="profile-tiles" onClick={(e) => e.stopPropagation()}>
+        <article className="profile-tile">
+          <span>{text.sectionLabel}</span>
+          <strong>{area}</strong>
+        </article>
+        <article className="profile-tile">
+          <span>{text.roundSize}</span>
+          <strong>{round}</strong>
+        </article>
+        <article className="profile-tile skills-tile">
+          <span>{text.businessEmail}</span>
+          <strong className="email-value">{email}</strong>
+          {skills.length > 0 && (
+            <div className="skill-chips" style={{ marginTop: 8 }}>
+              {skills.slice(0, 3).map((skill) => (
+                <span className="skill-chip" key={skill}>
+                  {skill}
+                </span>
+              ))}
+            </div>
+          )}
+        </article>
+      </div>
 
-          <h4>Criterios ponderados (rúbrica pre-seed)</h4>
+      {open && (
+        <div className="card-body" onClick={(e) => e.stopPropagation()}>
+          <h4>{text.origin}</h4>
+          <p className="just">
+            {origin}
+            {founder.origin_region ? ` · ${founder.origin_region}` : ""}
+            {` · ${confidence}`}
+            {founder.incubation_program ? ` · ${founder.incubation_program}` : ""}
+          </p>
+
+          {(founder.activity_summary || founder.pitch) && (
+            <>
+              <h4>{text.activityLabel}</h4>
+              <p className="just">{founder.activity_summary || founder.pitch}</p>
+            </>
+          )}
+
+          {founder.pitch && founder.activity_summary && (
+            <>
+              <h4>{text.pitchLabel}</h4>
+              <p className="just">{founder.pitch}</p>
+            </>
+          )}
+
+          <h4>{text.fundTeam}</h4>
+          {team.length === 0 ? (
+            <p className="muted">{text.fundTeamEmpty}</p>
+          ) : (
+            <div className="team-roster">
+              {team.map((member, i) => (
+                <article className="team-member" key={`${member.name}-${i}`}>
+                  <div className="team-member-head">
+                    <strong>{member.name}</strong>
+                    <span className={`rel-pill rel-${member.relationship}`}>
+                      {relationshipLabel(member.relationship, language)}
+                    </span>
+                  </div>
+                  <p className="team-member-role">
+                    {member.role || "—"}
+                    {member.area ? ` · ${member.area}` : ""}
+                  </p>
+                  {member.skills?.length > 0 && (
+                    <div className="skill-chips">
+                      {member.skills.slice(0, 4).map((skill) => (
+                        <span className="skill-chip" key={skill}>
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {member.profile_url && (
+                    <a className="evlink" href={member.profile_url} target="_blank" rel="noreferrer">
+                      {member.profile_url}
+                    </a>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+
+          <h4>{text.justification}</h4>
+          <p className="just">{translatedJustification}</p>
+
+          <h4>{text.criteria}</h4>
           {founder.criteria.map((c) => (
             <div className="criterion" key={c.name}>
               <div className="row">
                 <span>
-                  {c.name} <span className="w">· peso {c.weight}%</span>
+                  {c.name}{" "}
+                  <span className="w">
+                    · {text.weight} {c.weight}%
+                  </span>
                 </span>
                 <span>{c.score}/100</span>
               </div>
@@ -64,7 +225,7 @@ export function FounderCard({ founder }: { founder: FounderProfile }) {
             </div>
           ))}
 
-          <h4>Requisitos del fondo</h4>
+          <h4>{text.requirements}</h4>
           {founder.requirements.map((r) => (
             <div className={`req ${r.met ? "met" : "unmet"}`} key={r.name}>
               <span className="mark">{r.met ? "✓" : "✗"}</span>
@@ -77,10 +238,12 @@ export function FounderCard({ founder }: { founder: FounderProfile }) {
 
           {founder.signals.length > 0 && (
             <>
-              <h4>Señales técnicas</h4>
+              <h4>{text.signals}</h4>
               <div className="chips">
                 {founder.signals.map((s, i) => (
-                  <span className="chip" key={i}>{s}</span>
+                  <span className="chip" key={i}>
+                    {s}
+                  </span>
                 ))}
               </div>
             </>
@@ -88,7 +251,7 @@ export function FounderCard({ founder }: { founder: FounderProfile }) {
 
           {founder.evidence.length > 0 && (
             <>
-              <h4>Evidencia</h4>
+              <h4>{text.evidence}</h4>
               {founder.evidence.map((url) => (
                 <a className="evlink" key={url} href={url} target="_blank" rel="noreferrer">
                   {url}
@@ -99,28 +262,27 @@ export function FounderCard({ founder }: { founder: FounderProfile }) {
 
           {approved && founder.check && (
             <div className="check">
-              <span className="stamp">EMITIDO</span>
+              <span className="stamp">{text.issued}</span>
               <div className="bank">
                 <span className="name">{founder.check.issued_by}</span>
                 <span className="id">Nº {founder.check.check_id}</span>
               </div>
-              <div className="amount">
-                ${founder.check.amount_usd.toLocaleString("en-US")} USD
-              </div>
+              <div className="amount">${founder.check.amount_usd.toLocaleString("en-US")} USD</div>
               <p className="payto">
-                <span>Páguese a la orden de:</span> {founder.check.issued_to} ·{" "}
-                {founder.check.company}
+                <span>{text.payTo}</span> {founder.check.issued_to} · {founder.check.company}
               </p>
               <div className="foot">
-                <span>Fecha de emisión: {founder.check.date}</span>
-                <span>Aprobación instantánea · The VC Brain</span>
+                <span>
+                  {text.issueDate} {founder.check.date}
+                </span>
+                <span>{text.instant}</span>
               </div>
             </div>
           )}
 
           {!approved && founder.feedback.length > 0 && (
             <div className="feedback">
-              <h4>Feedback automático — qué falta para calificar</h4>
+              <h4>{text.feedback}</h4>
               <ul>
                 {founder.feedback.map((f, i) => (
                   <li key={i}>{f}</li>
@@ -130,7 +292,10 @@ export function FounderCard({ founder }: { founder: FounderProfile }) {
           )}
 
           <button className="outreach-btn" onClick={onOutreach} disabled={loadingMsg}>
-            {loadingMsg ? "Redactando…" : "✉️ Generar outreach personalizado"}
+            {loadingMsg ? text.drafting : text.outreach}
+          </button>
+          <button className="outreach-btn profile-action" onClick={onAnalyze}>
+            {text.analyzeNetwork}
           </button>
           {msgError && <div className="status error">{msgError}</div>}
           {outreach && <div className="outreach-box">{outreach}</div>}
