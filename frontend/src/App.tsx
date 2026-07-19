@@ -4,7 +4,6 @@ import { AnalysisPhases, Stage } from "./components/AnalysisPhases";
 import { FounderCard } from "./components/FounderCard";
 import { Login } from "./components/Login";
 import { PitchPanel } from "./components/PitchPanel";
-import { StartupMetrics } from "./components/StartupMetrics";
 import { Language, copy, loadLanguage, saveLanguage } from "./i18n";
 import type { FounderProfile, PipelineResult } from "./types";
 
@@ -164,8 +163,6 @@ function Workspace() {
         </section>
         <PitchPanel founder={selected} language={language} />
       </div>
-
-      <StartupMetrics founder={selected} language={language} />
     </main>
   );
 }

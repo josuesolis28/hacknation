@@ -287,7 +287,7 @@ export const copy: Record<Language, Dict> = {
     undoDiscard: "Undo",
     discardedPill: "✕ DISCARDED",
     tabGeneral: "General information",
-    tabInternal: "Internal information",
+    tabInternal: "Internal breakdown",
     manualApproval: "Manually approved",
   },
   es: {
@@ -424,7 +424,7 @@ export const copy: Record<Language, Dict> = {
     undoDiscard: "Deshacer",
     discardedPill: "✕ DESCARTADA",
     tabGeneral: "Información general",
-    tabInternal: "Información interna",
+    tabInternal: "Desglose interno",
     manualApproval: "Aprobada manualmente",
   },
   de: {
@@ -561,7 +561,7 @@ export const copy: Record<Language, Dict> = {
     undoDiscard: "Rückgängig",
     discardedPill: "✕ VERWORFEN",
     tabGeneral: "Allgemeine Informationen",
-    tabInternal: "Interne Informationen",
+    tabInternal: "Interne Aufschlüsselung",
     manualApproval: "Manuell genehmigt",
   },
 };

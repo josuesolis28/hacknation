@@ -79,13 +79,18 @@
 /* Modal flotante genérico */
 .modal-overlay { position: fixed; inset: 0; background: #16273080; backdrop-filter: blur(2px); display: grid; place-items: center; z-index: 1000; padding: 24px; animation: overlay-in .18s ease; }
 @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
-.modal-panel { position: relative; width: min(720px, 100%); max-height: 88vh; overflow-y: auto; background: #fff; border-radius: 16px; box-shadow: 0 30px 70px #0e202c40; animation: modal-in .22s cubic-bezier(.2,.9,.25,1); }
+.modal-panel { position: relative; width: min(800px, 100%); max-height: 88vh; display: flex; flex-direction: column; background: #fff; border-radius: 16px; box-shadow: 0 30px 70px #0e202c40; animation: modal-in .22s cubic-bezier(.2,.9,.25,1); overflow: hidden; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-.modal-panel-head { display: flex; align-items: center; gap: 13px; padding: 20px 52px 14px 20px; }
-.modal-close { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #dfe8ed; background: #f7fafb; color: #48606d; cursor: pointer; font-size: 14px; }
+.modal-panel-head { flex-shrink: 0; display: flex; align-items: center; gap: 13px; padding: 20px 52px 14px 20px; }
+.modal-close { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #dfe8ed; background: #f7fafb; color: #48606d; cursor: pointer; font-size: 14px; z-index: 1; }
 .modal-close.on-dark { position: static; border-color: #ffffff55; background: #ffffff22; color: #fff; margin-left: auto; }
+/* Contenido con scroll propio, entre el header/tabs fijos arriba y la barra de acciones fija abajo */
+.modal-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 .modal-panel .profile-tiles { padding: 0 20px 12px; }
 .modal-panel .card-body { padding: 4px 20px 22px; border-top: 1px solid #edf1f3; }
+/* Barra de acciones fija, tipo menú de restaurante (pagar / rechazar) */
+.modal-actions { flex-shrink: 0; display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid #edf1f3; background: #fff; }
+.modal-actions .outreach-btn { flex: 1; text-align: center; justify-content: center; margin: 0; }
 .check-cta { display: inline-flex; align-items: center; gap: 8px; background: #0fae86; border-color: #0fae86; color: #fff; }
 .check-cta .check-draw { width: 16px; height: 16px; }
 .check-cta .check-draw circle, .check-cta .check-draw path { stroke: #fff; fill: none; stroke-dasharray: none; stroke-dashoffset: 0; animation: none; }
@@ -112,16 +117,19 @@
 .check-modal-body .payto span { color: #7a8996; }
 .check-modal-body .foot { display: flex; justify-content: space-between; font-size: 11.5px; color: #7a8996; border-top: 1px dashed #cfe0e0; padding-top: 12px; }
 @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-@media(max-width:640px){.modal-panel-head{flex-wrap:wrap;}}
+/* Móvil: el modal se comporta como una hoja inferior (bottom sheet) grande,
+   con la barra de acciones siempre visible abajo, como el menú de un
+   restaurante — no hay que hacer scroll para encontrar el botón. */
+@media(max-width:640px){
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-panel { width: 100%; max-height: 92vh; border-radius: 20px 20px 0 0; animation: sheet-in .24s cubic-bezier(.2,.9,.25,1); }
+  @keyframes sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-panel-head { flex-wrap: wrap; padding-top: 24px; }
+  .modal-actions { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+  .check-modal-panel { width: 100%; }
+}
 
-/* Acordeón inline por tarjeta (colorimetría: verde/amarillo/rojo) */
-.startup-tile.expanded { grid-column: 1 / -1; cursor: default; }
 .startup-tile.discarded { opacity: .55; }
-.tile-expand { margin-top: 10px; padding-top: 12px; border-top: 1px solid #edf1f3; display: grid; gap: 10px; cursor: default; }
-.tile-why { margin: 0; font-size: 12.5px; color: #5d7280; line-height: 1.5; }
-.tile-feedback { margin: 0; padding-left: 18px; font-size: 12.5px; color: #5d7280; line-height: 1.6; }
-.tile-feedback li { margin: 2px 0; }
-.tile-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .decision-pill.discarded { color: #8a4b3d; background: #f4e7e2; }
 .manual-badge { color: #8a6d0c; background: #fff3d6; border-color: #ecd9a0; }
 
