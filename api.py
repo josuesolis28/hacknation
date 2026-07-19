@@ -13,7 +13,7 @@ from vcbrain.connect import generate_outreach
 from vcbrain.auth import current_user, issue_token, request_client_id, verify_credentials, verify_google_id_token
 from vcbrain import db
 from vcbrain.models import FounderProfile
-from vcbrain.pipeline import run_maschmeyer_pipeline, run_pipeline
+from vcbrain.pipeline import refresh_decisions, run_maschmeyer_pipeline, run_pipeline
 from vcbrain.profiles import analyze_public_profiles
 from vcbrain.translation import LANGUAGES, translate, translate_many
 
@@ -75,6 +75,12 @@ class DecisionRequest(BaseModel):
     company: str
     name: str
     state: str  # "forced" | "discarded" | "clear"
+
+
+class TicketRequest(BaseModel):
+    company: str
+    name: str
+    status: str  # "approved" | "rejected" | "follow_up" | "completed" | "clear"
 
 
 @app.get("/api/health")
@@ -150,9 +156,24 @@ def scout_maschmeyer(max_results: int | None = None, _: str = Depends(current_us
 @app.get("/api/scout/latest")
 def scout_latest(_: str = Depends(current_user)):
     """Devuelve el último escaneo guardado, si existe — evita volver a pagar
-    el costo de una corrida completa solo por refrescar el navegador."""
+    el costo de una corrida completa solo por refrescar el navegador.
+
+    Las decisiones se recalculan con la regla vigente antes de devolver el
+    resultado: si la regla de negocio cambió después de guardar esta corrida
+    (p. ej. el umbral de aprobación), un resultado cacheado no debe seguir
+    mostrando una decisión calculada con la regla vieja."""
     result = db.get_latest_scan()
-    return {"result": result}
+    return {"result": refresh_decisions(result) if result else None}
+
+
+@app.get("/api/companies")
+def list_companies(_: str = Depends(current_user)):
+    """Todas las startups ya monitoreadas alguna vez (deduplicadas), para la
+    sección "ya analizadas" — no requiere volver a escanear para verlas."""
+    companies = db.list_companies()
+    for c in companies:
+        c["founder"] = refresh_decisions({"founders": [c["founder"]]})["founders"][0]
+    return {"companies": companies}
 
 
 @app.post("/api/outreach")
@@ -211,4 +232,22 @@ def set_decision(req: DecisionRequest, _: str = Depends(current_user)):
     if not req.company.strip() or not req.name.strip():
         raise HTTPException(status_code=422, detail="company y name son obligatorios.")
     db.set_decision(req.company.strip(), req.name.strip(), req.state)
+    return {"ok": True}
+
+
+@app.get("/api/tickets")
+def list_tickets(_: str = Depends(current_user)):
+    """Tablero de tickets (aprobados / rechazados / en seguimiento / \
+completados), persistido para que sobreviva a un reload."""
+    return {"tickets": db.get_tickets()}
+
+
+@app.post("/api/tickets")
+def set_ticket(req: TicketRequest, _: str = Depends(current_user)):
+    valid = {"approved", "rejected", "follow_up", "completed", "clear"}
+    if req.status not in valid:
+        raise HTTPException(status_code=422, detail=f"status debe ser uno de: {', '.join(sorted(valid))}.")
+    if not req.company.strip() or not req.name.strip():
+        raise HTTPException(status_code=422, detail="company y name son obligatorios.")
+    db.set_ticket_status(req.company.strip(), req.name.strip(), req.status)
     return {"ok": True}

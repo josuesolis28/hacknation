@@ -21,7 +21,6 @@ CHECK_AMOUNT_USD = 100_000
 # Umbrales del semáforo (estándar MVP)
 GREEN_SCORE = APPROVAL_THRESHOLD  # 70
 YELLOW_SCORE = 45
-YELLOW_GATE_RATIO = 0.4  # al menos 40% de gates cumplidos para amarillo
 
 
 def _new_check(founder: FounderProfile) -> Check:
@@ -45,33 +44,31 @@ def _is_dach(founder: FounderProfile) -> bool:
 
 
 def assign_traffic_light(founder: FounderProfile) -> str:
-    """Asigna semáforo según ponderación y gates."""
+    """Asigna semáforo según el score ponderado.
+
+    Regla del fondo: cualquier startup DACH con score >= 70 califica, sin
+    excepción — los gates (requirements) son diligencia informativa para la
+    ficha interna, pero ya no bloquean la aprobación (antes exigían also
+    "todos los gates cumplidos", lo que rechazaba startups de 70+ puntos por
+    un solo requisito no confirmado, contradiciendo la regla real del fondo).
+    """
     if not _is_dach(founder):
         return "red"
 
-    total_gates = len(founder.requirements) or 1
-    met = sum(1 for r in founder.requirements if r.met)
-    ratio = met / total_gates
     score = founder.founder_score
-    all_met = met == total_gates and bool(founder.requirements)
-
-    if all_met and score >= GREEN_SCORE:
+    if score >= GREEN_SCORE:
         return "green"
-    if score >= YELLOW_SCORE and ratio >= YELLOW_GATE_RATIO:
-        return "yellow"
-    if score >= YELLOW_SCORE and founder.section:
+    if score >= YELLOW_SCORE:
         return "yellow"
     return "red"
 
 
 def decide(founder: FounderProfile) -> FounderProfile:
-    """Aplica semáforo y regla de aprobación instantánea."""
+    """Aplica semáforo y regla de aprobación instantánea: DACH + score >= 70."""
     founder.traffic_light = assign_traffic_light(founder)
-
-    all_gates_met = all(r.met for r in founder.requirements) and founder.requirements
     score_ok = founder.founder_score >= APPROVAL_THRESHOLD
 
-    if founder.traffic_light == "green" and all_gates_met and score_ok:
+    if founder.traffic_light == "green" and score_ok:
         founder.decision = "approved"
         founder.check = _new_check(founder)
         founder.feedback = []
@@ -81,7 +78,7 @@ def decide(founder: FounderProfile) -> FounderProfile:
         reasons = []
         if founder.traffic_light == "red":
             reasons.append(
-                "Semáforo rojo: no cumple los criterios base (DACH / score / gates)."
+                "Semáforo rojo: no cumple los criterios base (DACH / score)."
             )
         elif founder.traffic_light == "yellow":
             reasons.append(

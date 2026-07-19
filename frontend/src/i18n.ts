@@ -156,6 +156,23 @@ type Dict = {
   manualApproval: string;
   rescan: string;
   orDivider: string;
+  reviewCheckbox: string;
+  ticketsEyebrow: string;
+  ticketsTitle: string;
+  ticketsApproved: string;
+  ticketsFollowUp: string;
+  ticketsCompleted: string;
+  ticketsRejected: string;
+  ticketsEmpty: string;
+  markCompleted: string;
+  markRejected: string;
+  removeFromTickets: string;
+  archiveEyebrow: string;
+  archiveTitle: string;
+  archiveLoading: string;
+  archiveEmpty: string;
+  archiveSeenTimes: string;
+  poweredBy: string;
 };
 
 export const copy: Record<Language, Dict> = {
@@ -301,6 +318,23 @@ export const copy: Record<Language, Dict> = {
     manualApproval: "Manually approved",
     rescan: "Re-scan",
     orDivider: "or",
+    reviewCheckbox: "Review",
+    ticketsEyebrow: "PIPELINE",
+    ticketsTitle: "Tickets",
+    ticketsApproved: "Approved",
+    ticketsFollowUp: "Follow-up",
+    ticketsCompleted: "Completed",
+    ticketsRejected: "Rejected",
+    ticketsEmpty: "No tickets here yet.",
+    markCompleted: "Mark completed",
+    markRejected: "Reject",
+    removeFromTickets: "Remove from tickets",
+    archiveEyebrow: "ARCHIVE",
+    archiveTitle: "Already analyzed",
+    archiveLoading: "Loading archive…",
+    archiveEmpty: "No startups analyzed yet.",
+    archiveSeenTimes: "seen {n}×",
+    poweredBy: "Powered by The VC Brain",
   },
   es: {
     title: "Intake startups DACH",
@@ -444,6 +478,23 @@ export const copy: Record<Language, Dict> = {
     manualApproval: "Aprobada manualmente",
     rescan: "Escanear de nuevo",
     orDivider: "o",
+    reviewCheckbox: "Revisar",
+    ticketsEyebrow: "PIPELINE",
+    ticketsTitle: "Tickets",
+    ticketsApproved: "Aprobados",
+    ticketsFollowUp: "En seguimiento",
+    ticketsCompleted: "Completados",
+    ticketsRejected: "Rechazados",
+    ticketsEmpty: "Todavía no hay tickets aquí.",
+    markCompleted: "Marcar completado",
+    markRejected: "Rechazar",
+    removeFromTickets: "Quitar de tickets",
+    archiveEyebrow: "ARCHIVO",
+    archiveTitle: "Ya analizadas",
+    archiveLoading: "Cargando archivo…",
+    archiveEmpty: "Todavía no hay startups analizadas.",
+    archiveSeenTimes: "vista {n}×",
+    poweredBy: "Powered by The VC Brain",
   },
   de: {
     title: "DACH Startup Intake",
@@ -587,6 +638,23 @@ export const copy: Record<Language, Dict> = {
     manualApproval: "Manuell genehmigt",
     rescan: "Neu scannen",
     orDivider: "oder",
+    reviewCheckbox: "Prüfen",
+    ticketsEyebrow: "PIPELINE",
+    ticketsTitle: "Tickets",
+    ticketsApproved: "Genehmigt",
+    ticketsFollowUp: "In Nachverfolgung",
+    ticketsCompleted: "Abgeschlossen",
+    ticketsRejected: "Abgelehnt",
+    ticketsEmpty: "Noch keine Tickets hier.",
+    markCompleted: "Als abgeschlossen markieren",
+    markRejected: "Ablehnen",
+    removeFromTickets: "Aus Tickets entfernen",
+    archiveEyebrow: "ARCHIV",
+    archiveTitle: "Bereits analysiert",
+    archiveLoading: "Archiv wird geladen…",
+    archiveEmpty: "Noch keine Startups analysiert.",
+    archiveSeenTimes: "{n}× gesehen",
+    poweredBy: "Powered by The VC Brain",
   },
 };
 

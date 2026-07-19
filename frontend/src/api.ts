@@ -137,3 +137,32 @@ export function setDecision(company: string, name: string, state: DecisionState)
 export function decisionKey(company: string, name: string): string {
   return `${company.trim().toLowerCase()}|${name.trim().toLowerCase()}`;
 }
+
+export type TicketStatus = "approved" | "rejected" | "follow_up" | "completed" | "clear";
+
+export function getTickets(): Promise<{ tickets: Record<string, TicketStatus> }> {
+  return fetch("/api/tickets", { headers: headers(false) }).then((r) =>
+    handle<{ tickets: Record<string, TicketStatus> }>(r),
+  );
+}
+
+export function setTicketStatus(company: string, name: string, status: TicketStatus): Promise<{ ok: boolean }> {
+  return fetch("/api/tickets", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ company, name, status }),
+  }).then((r) => handle<{ ok: boolean }>(r));
+}
+
+export interface CompanyRecord {
+  founder: FounderProfile;
+  first_seen: string;
+  last_seen: string;
+  times_seen: number;
+}
+
+export function getCompanies(): Promise<{ companies: CompanyRecord[] }> {
+  return fetch("/api/companies", { headers: headers(false) }).then((r) =>
+    handle<{ companies: CompanyRecord[] }>(r),
+  );
+}

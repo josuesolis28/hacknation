@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Check, FounderProfile } from "../types";
-import { DecisionState, generateOutreach } from "../api";
+import { DecisionState, TicketStatus, generateOutreach } from "../api";
 import { useTranslatedFounder } from "../hooks/useTranslatedFounder";
 import {
   Language,
@@ -133,7 +133,7 @@ function StartupModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="modal-panel-head">
-          <div className="score-badge">
+          <div className={`score-badge traffic-badge-${light}`}>
             <span className="num">{founder.founder_score}</span>
             <span className="of">/ 100</span>
           </div>
@@ -436,6 +436,8 @@ export function FounderCard({
   onSelect,
   initialDecision,
   onDecisionChange,
+  ticketStatus,
+  onTicketChange,
 }: {
   founder: FounderProfile;
   language: Language;
@@ -443,6 +445,8 @@ export function FounderCard({
   onSelect: () => void;
   initialDecision?: DecisionState;
   onDecisionChange?: (company: string, name: string, state: DecisionState) => void;
+  ticketStatus?: TicketStatus;
+  onTicketChange?: (company: string, name: string, status: TicketStatus) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
@@ -489,6 +493,16 @@ export function FounderCard({
     onDecisionChange?.(founder.company, founder.name, "forced");
   };
 
+  const reviewed = Boolean(ticketStatus);
+  const toggleReview = () => {
+    if (reviewed) {
+      onTicketChange?.(founder.company, founder.name, "clear");
+      return;
+    }
+    const status: TicketStatus = isApproved ? "approved" : light === "yellow" ? "follow_up" : "rejected";
+    onTicketChange?.(founder.company, founder.name, status);
+  };
+
   return (
     <>
       <div
@@ -509,7 +523,7 @@ export function FounderCard({
             <ApprovedCheckIcon />
           </button>
         )}
-        <div className="score-badge">
+        <div className={`score-badge traffic-badge-${light}`}>
           <span className="num">{founder.founder_score}</span>
           <span className="of">/ 100</span>
         </div>
@@ -538,6 +552,10 @@ export function FounderCard({
           </span>
         )}
         {forced && !discarded && <span className="section-badge manual-badge">{text.manualApproval}</span>}
+        <label className="tile-review" onClick={(e) => e.stopPropagation()}>
+          <input type="checkbox" checked={reviewed} onChange={toggleReview} />
+          {text.reviewCheckbox}
+        </label>
       </div>
 
       {modalOpen && (

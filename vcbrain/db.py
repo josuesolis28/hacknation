@@ -79,6 +79,11 @@ CREATE TABLE IF NOT EXISTS companies (
     last_seen TIMESTAMPTZ NOT NULL,
     times_seen INTEGER NOT NULL DEFAULT 1
 );
+CREATE TABLE IF NOT EXISTS tickets (
+    founder_key TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
+);
 """
 
 _SCHEMA_SQLITE = """
@@ -110,6 +115,11 @@ CREATE TABLE IF NOT EXISTS companies (
     first_seen TEXT NOT NULL,
     last_seen TEXT NOT NULL,
     times_seen INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS tickets (
+    founder_key TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 """
 
@@ -214,6 +224,45 @@ def get_decisions() -> dict[str, str]:
     with _lock, _connect() as conn:
         rows = _fetchall(conn, "SELECT founder_key, state FROM decisions")
         return {row["founder_key"]: row["state"] for row in rows}
+
+
+# ---------------------------------------------------------------------------
+# Tickets: tablero de aprobados / rechazados / en seguimiento
+# ---------------------------------------------------------------------------
+# El checkbox "revisar" de cada tarjeta pasa el lead de "sin ticket" a uno de:
+#   approved   → verde/aprobado manual, el cheque ya se emitió
+#   rejected   → rojo, sin potencial
+#   follow_up  → amarillo con potencial, pendiente de dar seguimiento
+#   completed  → amarillo que se dio seguimiento y se cerró bien
+# (rejected también aplica a un follow_up que finalmente no califica)
+
+def set_ticket_status(company: str, name: str, status: str) -> None:
+    """``status`` es 'approved' | 'rejected' | 'follow_up' | 'completed' | 'clear'."""
+    key = founder_key(company, name)
+    with _lock, _connect() as conn:
+        if status == "clear":
+            _exec(conn, f"DELETE FROM tickets WHERE founder_key = {_ph(1)}", (key,))
+        elif _IS_PG:
+            _exec(
+                conn,
+                "INSERT INTO tickets (founder_key, status, updated_at) VALUES (%s, %s, %s) "
+                "ON CONFLICT (founder_key) DO UPDATE SET status = EXCLUDED.status, updated_at = EXCLUDED.updated_at",
+                (key, status, _now()),
+            )
+        else:
+            _exec(
+                conn,
+                "INSERT INTO tickets (founder_key, status, updated_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(founder_key) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at",
+                (key, status, _now()),
+            )
+        conn.commit()
+
+
+def get_tickets() -> dict[str, str]:
+    with _lock, _connect() as conn:
+        rows = _fetchall(conn, "SELECT founder_key, status FROM tickets")
+        return {row["founder_key"]: row["status"] for row in rows}
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +401,25 @@ def get_known_company_keys() -> set[str]:
     with _lock, _connect() as conn:
         rows = _fetchall(conn, "SELECT company_key FROM companies")
         return {row["company_key"] for row in rows}
+
+
+def list_companies() -> list[dict]:
+    """Todas las startups vistas alguna vez (para la sección "ya
+    analizadas"), más recientes primero."""
+    with _lock, _connect() as conn:
+        rows = _fetchall(
+            conn,
+            "SELECT founder_json, first_seen, last_seen, times_seen FROM companies ORDER BY last_seen DESC",
+        )
+        return [
+            {
+                "founder": _json_load(row["founder_json"]),
+                "first_seen": row["first_seen"],
+                "last_seen": row["last_seen"],
+                "times_seen": row["times_seen"],
+            }
+            for row in rows
+        ]
 
 
 # ---------------------------------------------------------------------------

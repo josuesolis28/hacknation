@@ -92,6 +92,20 @@ def run_maschmeyer_pipeline(max_results: int | None = None) -> PipelineResult:
     return result
 
 
+def refresh_decisions(result_dict: dict) -> dict:
+    """Vuelve a aplicar la regla de decisión vigente a un resultado ya
+    guardado (``scans``/``companies``). Necesario porque la regla de negocio
+    puede cambiar (p. ej. "score >= 70 siempre califica") después de que una
+    corrida ya se guardó — sin esto, un resultado cacheado seguiría
+    mostrando la decisión calculada con la regla vieja hasta la próxima
+    corrida nueva."""
+    result_dict = dict(result_dict)
+    result_dict["founders"] = [
+        decide(founder_from_dict(f)).to_dict() for f in result_dict.get("founders", [])
+    ]
+    return result_dict
+
+
 def _report_budget(result: PipelineResult, budget: CostTracker) -> None:
     result.cost_usd = budget.total_usd
     logger.info("Costo estimado de la corrida: $%.4f (límite $%.2f)", budget.total_usd, budget.limit_usd)

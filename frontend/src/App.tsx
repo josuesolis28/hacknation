@@ -1,19 +1,23 @@
 import { useEffect, useState } from "react";
 import {
   DecisionState,
+  TicketStatus,
   clearAccessToken,
   decisionKey,
   fetchHealth,
   getDecisions,
   getLatestScan,
+  getTickets,
   hasAccessToken,
   runMaschmeyerScout,
   setDecision,
+  setTicketStatus,
 } from "./api";
 import { AnalysisPhases, Stage } from "./components/AnalysisPhases";
+import { AnalyzedArchive } from "./components/AnalyzedArchive";
 import { FounderCard } from "./components/FounderCard";
 import { Login } from "./components/Login";
-import { PitchPanel } from "./components/PitchPanel";
+import { TicketsBoard } from "./components/TicketsBoard";
 import { Language, copy, loadLanguage, saveLanguage } from "./i18n";
 import type { FounderProfile, PipelineResult } from "./types";
 
@@ -24,6 +28,8 @@ function Workspace() {
   const [language, setLanguage] = useState<Language>(() => loadLanguage("en"));
   const [selected, setSelected] = useState<FounderProfile | null>(null);
   const [decisions, setDecisions] = useState<Record<string, DecisionState>>({});
+  const [tickets, setTickets] = useState<Record<string, TicketStatus>>({});
+  const [progress, setProgress] = useState(0);
   const text = copy[language];
 
   const updateDecision = (company: string, name: string, state: DecisionState) => {
@@ -35,6 +41,17 @@ function Workspace() {
       return next;
     });
     void setDecision(company, name, state);
+  };
+
+  const updateTicket = (company: string, name: string, status: TicketStatus) => {
+    const key = decisionKey(company, name);
+    setTickets((prev) => {
+      const next = { ...prev };
+      if (status === "clear") delete next[key];
+      else next[key] = status;
+      return next;
+    });
+    void setTicketStatus(company, name, status);
   };
 
   useEffect(() => {
@@ -54,8 +71,26 @@ function Workspace() {
       .catch(() => undefined);
   }, []);
 
+  // Barra de progreso simulada: el backend hace una sola llamada bloqueante
+  // (no reporta % real de avance), así que se aproxima con una curva
+  // asintótica que se acerca a ~92% mientras dura el escaneo y salta a 100%
+  // en cuanto el resultado llega — da retroalimentación continua en vez de
+  // dejar al usuario viendo un stepper estático varios segundos.
+  useEffect(() => {
+    if (stage === "complete") {
+      setProgress(100);
+      return;
+    }
+    if (stage === "initializing") return;
+    const id = window.setInterval(() => {
+      setProgress((p) => (p >= 92 ? p : p + (92 - p) * 0.06));
+    }, 220);
+    return () => window.clearInterval(id);
+  }, [stage]);
+
   const rescan = async () => {
     setError(null);
+    setProgress(0);
     setStage("detecting");
     const timer1 = window.setTimeout(() => setStage("analyzing_ux"), 750);
     const timer2 = window.setTimeout(() => setStage("validating"), 1600);
@@ -75,6 +110,9 @@ function Workspace() {
   useEffect(() => {
     void getDecisions()
       .then(({ decisions }) => setDecisions(decisions))
+      .catch(() => undefined);
+    void getTickets()
+      .then(({ tickets }) => setTickets(tickets))
       .catch(() => undefined);
 
     const run = async () => {
@@ -96,14 +134,6 @@ function Workspace() {
     void run();
   }, []);
 
-  const statusLabel =
-    stage === "complete"
-      ? text.complete
-      : stage === "validating"
-        ? text.validatingSignals
-        : stage === "analyzing_ux"
-          ? text.phaseUx
-          : text.scanning;
   const total = result?.raw_hits.length ?? 0;
   const candidates = result?.founders.length ?? 0;
   const approved = result?.founders.filter((f) => f.decision === "approved").length ?? 0;
@@ -137,18 +167,7 @@ function Workspace() {
         </div>
       </header>
 
-      <section className={`run-status ${stage}`}>
-        <div className="pulse" />
-        <div>
-          <strong>{statusLabel}</strong>
-          <p>
-            {text.scope} · HealthTech · FinTech · Food & AgTech · Logistics · HR Tech · LegalTech · Retail · EdTech ·
-            CleanTech · PropTech · Cybersecurity
-          </p>
-        </div>
-      </section>
-
-      <AnalysisPhases stage={stage} language={language} />
+      <AnalysisPhases stage={stage} language={language} progress={progress} />
 
       <section className="metrics">
         <article>
@@ -180,38 +199,50 @@ function Workspace() {
         </div>
       ))}
 
-      <div className="analysis-grid">
-        <section className="candidate-list">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">{text.dealFlow}</span>
-              <h2>{text.founders}</h2>
-            </div>
-            <span>
-              {candidates} {text.profiles}
-            </span>
+      <div className="section-divider" />
+
+      <section className="candidate-list">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{text.dealFlow}</span>
+            <h2>{text.founders}</h2>
           </div>
-          {stage !== "complete" && (
-            <div className="loading-state">
-              <span className="spinner" /> {text.analyzing}
-            </div>
-          )}
-          <div className="startup-grid">
-            {result?.founders.map((founder) => (
-              <FounderCard
-                key={`${founder.name}-${founder.company}`}
-                founder={founder}
-                language={language}
-                selected={selected?.name === founder.name && selected?.company === founder.company}
-                onSelect={() => setSelected(founder)}
-                initialDecision={decisions[decisionKey(founder.company, founder.name)]}
-                onDecisionChange={updateDecision}
-              />
-            ))}
+          <span>
+            {candidates} {text.profiles}
+          </span>
+        </div>
+        {stage !== "complete" && (
+          <div className="loading-state">
+            <span className="spinner" /> {text.analyzing}
           </div>
-        </section>
-        <PitchPanel founder={selected} language={language} />
-      </div>
+        )}
+        <div className="startup-grid">
+          {result?.founders.map((founder) => (
+            <FounderCard
+              key={`${founder.name}-${founder.company}`}
+              founder={founder}
+              language={language}
+              selected={selected?.name === founder.name && selected?.company === founder.company}
+              onSelect={() => setSelected(founder)}
+              initialDecision={decisions[decisionKey(founder.company, founder.name)]}
+              onDecisionChange={updateDecision}
+              ticketStatus={tickets[decisionKey(founder.company, founder.name)]}
+              onTicketChange={updateTicket}
+            />
+          ))}
+        </div>
+      </section>
+
+      <TicketsBoard
+        founders={result?.founders ?? []}
+        tickets={tickets}
+        language={language}
+        onTicketChange={updateTicket}
+      />
+
+      <AnalyzedArchive language={language} />
+
+      <footer className="app-footer">{text.poweredBy}</footer>
     </main>
   );
 }
