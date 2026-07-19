@@ -166,3 +166,108 @@ export function getCompanies(): Promise<{ companies: CompanyRecord[] }> {
     handle<{ companies: CompanyRecord[] }>(r),
   );
 }
+
+export interface FormMeta {
+  sections: string[];
+  round_sizes: string[];
+  countries: { name: string; code: string }[];
+}
+
+export function getMeta(): Promise<FormMeta> {
+  return fetch("/api/meta", { headers: headers(false) }).then((r) => handle<FormMeta>(r));
+}
+
+export interface SubmissionTeamMember {
+  name: string;
+  role: string;
+}
+
+export interface SubmissionPayload {
+  company: string;
+  name: string;
+  role: string;
+  country: string;
+  website: string;
+  section: string;
+  round_size: string;
+  pitch: string;
+  extra_text: string;
+  video_url: string;
+  business_email: string;
+  linkedin: string;
+  instagram: string;
+  x_url: string;
+  team: SubmissionTeamMember[];
+  pdf: File | null;
+}
+
+export function submitStartup(payload: SubmissionPayload): Promise<{ founder: FounderProfile }> {
+  const form = new FormData();
+  form.set("company", payload.company);
+  form.set("name", payload.name);
+  form.set("role", payload.role);
+  form.set("country", payload.country);
+  form.set("website", payload.website);
+  form.set("section", payload.section);
+  form.set("round_size", payload.round_size);
+  form.set("pitch", payload.pitch);
+  form.set("extra_text", payload.extra_text);
+  form.set("video_url", payload.video_url);
+  form.set("business_email", payload.business_email);
+  form.set("linkedin", payload.linkedin);
+  form.set("instagram", payload.instagram);
+  form.set("x_url", payload.x_url);
+  form.set("team", JSON.stringify(payload.team.filter((m) => m.name.trim())));
+  if (payload.pdf) form.set("pdf", payload.pdf);
+
+  return fetch("/api/submissions", {
+    method: "POST",
+    headers: headers(false), // sin Content-Type: el navegador pone el boundary del multipart
+    body: form,
+  }).then((r) => handle<{ founder: FounderProfile }>(r));
+}
+
+export type SubmissionStatus = "submitted" | "in_progress" | "approved" | "rejected";
+
+export interface SubmissionFile {
+  id: number;
+  kind: "pdf" | "image" | "video";
+  filename: string;
+  content_type: string;
+  url: string | null;
+}
+
+export function submissionFileUrl(fileId: number): string {
+  return `/api/submissions/files/${fileId}`;
+}
+
+/** El token va en el header Authorization (no en cookies), así que un
+ * <img src=...>/<a href=...> normal no lo puede pedir — hay que traerlo con
+ * fetch autenticado y convertirlo a una blob: URL para mostrarlo/abrirlo. */
+export async function fetchSubmissionFileBlobUrl(fileId: number): Promise<string> {
+  const res = await fetch(submissionFileUrl(fileId), { headers: headers(false) });
+  if (!res.ok) throw new Error(res.statusText);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+export interface MySubmission {
+  company: string;
+  name: string;
+  created_at: string;
+  status: SubmissionStatus;
+  founder: FounderProfile | null;
+  files: SubmissionFile[];
+}
+
+export function getMySubmissions(): Promise<{ submissions: MySubmission[] }> {
+  return fetch("/api/submissions/mine", { headers: headers(false) }).then((r) =>
+    handle<{ submissions: MySubmission[] }>(r),
+  );
+}
+
+export function getAllSubmissions(): Promise<{ founders: FounderProfile[] }> {
+  return fetch("/api/submissions", { headers: headers(false) }).then((r) =>
+    handle<{ founders: FounderProfile[] }>(r),
+  );
+}

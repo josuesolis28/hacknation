@@ -84,6 +84,25 @@ CREATE TABLE IF NOT EXISTS tickets (
     status TEXT NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL
 );
+CREATE TABLE IF NOT EXISTS submissions (
+    id SERIAL PRIMARY KEY,
+    submitter TEXT NOT NULL,
+    company TEXT NOT NULL,
+    name TEXT NOT NULL,
+    company_key TEXT NOT NULL,
+    founder_key TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS submission_files (
+    id SERIAL PRIMARY KEY,
+    submission_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    data BYTEA,
+    url TEXT,
+    created_at TIMESTAMPTZ NOT NULL
+);
 """
 
 _SCHEMA_SQLITE = """
@@ -120,6 +139,25 @@ CREATE TABLE IF NOT EXISTS tickets (
     founder_key TEXT PRIMARY KEY,
     status TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    submitter TEXT NOT NULL,
+    company TEXT NOT NULL,
+    name TEXT NOT NULL,
+    company_key TEXT NOT NULL,
+    founder_key TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS submission_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    submission_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    data BLOB,
+    url TEXT,
+    created_at TEXT NOT NULL
 );
 """
 
@@ -322,8 +360,12 @@ def _merge_founder(old: dict, new: dict) -> dict:
     merged = dict(old)
     for key, new_value in new.items():
         old_value = old.get(key)
-        if key in ("team", "evidence", "signals", "skills", "clients", "impact_metrics", "feedback"):
+        if key in ("evidence", "signals", "skills", "clients", "impact_metrics", "feedback"):
             merged[key] = _merge_lists(old_value or [], new_value or [])
+        elif key == "team":
+            # Objetos (dict), no strings — hay que indexar por nombre en vez
+            # de usar el valor completo como clave (los dicts no son hashables).
+            merged[key] = _merge_lists(old_value or [], new_value or [], item_key=lambda x: x.get("name"))
         elif key == "social_links":
             merged[key] = _merge_lists(old_value or [], new_value or [], item_key=lambda x: x.get("url"))
         elif key == "funding_rounds":
@@ -420,6 +462,102 @@ def list_companies() -> list[dict]:
             }
             for row in rows
         ]
+
+
+def get_company_by_key(key: str) -> dict | None:
+    with _lock, _connect() as conn:
+        row = _fetchone(conn, f"SELECT founder_json FROM companies WHERE company_key = {_ph(1)}", (key,))
+        return _json_load(row["founder_json"]) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Submissions: alta directa de startups por el propio founder (sin scraping)
+# ---------------------------------------------------------------------------
+
+def create_submission(submitter: str, company: str, name: str, country_code: str) -> int:
+    with _lock, _connect() as conn:
+        query = (
+            f"INSERT INTO submissions (submitter, company, name, company_key, founder_key, created_at) "
+            f"VALUES ({_ph(6)})"
+        )
+        params = (submitter, company, name, company_key(company, country_code), founder_key(company, name), _now())
+        if _IS_PG:
+            with conn.cursor() as cur:
+                cur.execute(query + " RETURNING id", params)
+                new_id = cur.fetchone()["id"]
+            conn.commit()
+            return int(new_id)
+        else:
+            cur = conn.execute(query, params)
+            conn.commit()
+            return int(cur.lastrowid)
+
+
+def list_submissions(submitter: str | None = None) -> list[dict]:
+    with _lock, _connect() as conn:
+        if submitter is not None:
+            rows = _fetchall(
+                conn,
+                f"SELECT id, submitter, company, name, company_key, founder_key, created_at "
+                f"FROM submissions WHERE submitter = {_ph(1)} ORDER BY created_at DESC",
+                (submitter,),
+            )
+        else:
+            rows = _fetchall(
+                conn,
+                "SELECT id, submitter, company, name, company_key, founder_key, created_at "
+                "FROM submissions ORDER BY created_at DESC",
+            )
+        return [dict(row) for row in rows]
+
+
+# ---------------------------------------------------------------------------
+# Archivos adjuntos de una submission: PDF/imagen (bytes) o video (URL)
+# ---------------------------------------------------------------------------
+
+def save_submission_file(
+    submission_id: int, kind: str, filename: str, content_type: str, data: bytes | None = None, url: str | None = None
+) -> int:
+    with _lock, _connect() as conn:
+        query = (
+            f"INSERT INTO submission_files (submission_id, kind, filename, content_type, data, url, created_at) "
+            f"VALUES ({_ph(7)})"
+        )
+        params = (submission_id, kind, filename, content_type, data, url, _now())
+        if _IS_PG:
+            with conn.cursor() as cur:
+                cur.execute(query + " RETURNING id", params)
+                new_id = cur.fetchone()["id"]
+            conn.commit()
+            return int(new_id)
+        else:
+            cur = conn.execute(query, params)
+            conn.commit()
+            return int(cur.lastrowid)
+
+
+def list_submission_files(submission_id: int) -> list[dict]:
+    """Metadata únicamente (sin el blob) — para listar adjuntos sin traer
+    megabytes de datos en cada respuesta."""
+    with _lock, _connect() as conn:
+        rows = _fetchall(
+            conn,
+            f"SELECT id, kind, filename, content_type, url FROM submission_files "
+            f"WHERE submission_id = {_ph(1)} ORDER BY id",
+            (submission_id,),
+        )
+        return [dict(row) for row in rows]
+
+
+def get_submission_file(file_id: int) -> dict | None:
+    """Trae el archivo completo (con el blob) para servirlo/descargarlo."""
+    with _lock, _connect() as conn:
+        row = _fetchone(
+            conn,
+            f"SELECT filename, content_type, data, url FROM submission_files WHERE id = {_ph(1)}",
+            (file_id,),
+        )
+        return dict(row) if row else None
 
 
 # ---------------------------------------------------------------------------

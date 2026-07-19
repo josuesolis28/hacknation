@@ -173,6 +173,51 @@ type Dict = {
   archiveEmpty: string;
   archiveSeenTimes: string;
   poweredBy: string;
+  submitStartupBtn: string;
+  mySubmissionsBtn: string;
+  submitModalTitle: string;
+  submitModalHint: string;
+  submitCompany: string;
+  submitFounderName: string;
+  submitRole: string;
+  submitCountry: string;
+  submitWebsite: string;
+  submitSection: string;
+  submitRoundSize: string;
+  submitPitch: string;
+  submitExtraText: string;
+  submitExtraTextHint: string;
+  submitVideoUrl: string;
+  submitPdf: string;
+  submitButton: string;
+  submitBusinessEmail: string;
+  submitTeam: string;
+  submitTeamMemberName: string;
+  submitTeamMemberRole: string;
+  submitAddTeamMember: string;
+  submitLinkedin: string;
+  submitInstagram: string;
+  submitX: string;
+  submitting: string;
+  submitSuccessTitle: string;
+  submitSuccessBody: string;
+  statusSubmitted: string;
+  statusInProgress: string;
+  statusApproved: string;
+  statusRejected: string;
+  mySubmissionsTitle: string;
+  mySubmissionsEmpty: string;
+  adminSubmissionsEyebrow: string;
+  adminSubmissionsTitle: string;
+  roleTitle: string;
+  roleHint: string;
+  roleInvestor: string;
+  roleInvestorHint: string;
+  roleStartup: string;
+  roleStartupHint: string;
+  switchRole: string;
+  tabScan: string;
+  tabSubmissionsReceived: string;
 };
 
 export const copy: Record<Language, Dict> = {
@@ -335,6 +380,51 @@ export const copy: Record<Language, Dict> = {
     archiveEmpty: "No startups analyzed yet.",
     archiveSeenTimes: "seen {n}×",
     poweredBy: "Powered by The VC Brain",
+    submitStartupBtn: "Submit your startup",
+    mySubmissionsBtn: "My submissions",
+    submitModalTitle: "Submit your startup",
+    submitModalHint: "Same evaluation the Scout runs on public sources — just tell us directly instead of us having to find it.",
+    submitCompany: "Company name",
+    submitFounderName: "Founder name",
+    submitRole: "Role",
+    submitCountry: "HQ country",
+    submitWebsite: "Website",
+    submitSection: "Section",
+    submitRoundSize: "Round size",
+    submitPitch: "Pitch",
+    submitExtraText: "Additional info / pitch deck content",
+    submitExtraTextHint: "Paste your executive summary, deck text, or any relevant detail — team, traction, funding.",
+    submitVideoUrl: "Video URL (optional)",
+    submitPdf: "Pitch deck (PDF, optional)",
+    submitButton: "Submit for evaluation",
+    submitBusinessEmail: "Business email",
+    submitTeam: "Team",
+    submitTeamMemberName: "Name",
+    submitTeamMemberRole: "Role (e.g. CTO, COO)",
+    submitAddTeamMember: "+ Add team member",
+    submitLinkedin: "LinkedIn (optional)",
+    submitInstagram: "Instagram (optional)",
+    submitX: "X / Twitter (optional)",
+    submitting: "Evaluating…",
+    submitSuccessTitle: "Submitted",
+    submitSuccessBody: "Your startup was evaluated and filed. Check \"My submissions\" for its status.",
+    statusSubmitted: "Submitted",
+    statusInProgress: "In progress",
+    statusApproved: "Approved",
+    statusRejected: "Rejected",
+    mySubmissionsTitle: "My submissions",
+    mySubmissionsEmpty: "You haven't submitted a startup yet.",
+    adminSubmissionsEyebrow: "SELF-SUBMITTED",
+    adminSubmissionsTitle: "Startup submissions",
+    roleTitle: "Who's coming in?",
+    roleHint: "Choose your side — the workspace is different for each.",
+    roleInvestor: "I'm an investor",
+    roleInvestorHint: "Scout, evaluate, and manage the deal-flow pipeline.",
+    roleStartup: "I'm a startup",
+    roleStartupHint: "Submit your startup for evaluation and track its status.",
+    switchRole: "Switch role",
+    tabScan: "Scan",
+    tabSubmissionsReceived: "Submissions received",
   },
   es: {
     title: "Intake startups DACH",
@@ -495,6 +585,51 @@ export const copy: Record<Language, Dict> = {
     archiveEmpty: "Todavía no hay startups analizadas.",
     archiveSeenTimes: "vista {n}×",
     poweredBy: "Powered by The VC Brain",
+    submitStartupBtn: "Enviar tu startup",
+    mySubmissionsBtn: "Mis solicitudes",
+    submitModalTitle: "Enviar tu startup",
+    submitModalHint: "La misma evaluación que corre el Scout sobre fuentes públicas — solo que nos la cuentas tú directamente en vez de que la busquemos.",
+    submitCompany: "Nombre de la empresa",
+    submitFounderName: "Nombre del founder",
+    submitRole: "Rol",
+    submitCountry: "País de sede",
+    submitWebsite: "Sitio web",
+    submitSection: "Sección",
+    submitRoundSize: "Tamaño de ronda",
+    submitPitch: "Pitch",
+    submitExtraText: "Información adicional / contenido del pitch deck",
+    submitExtraTextHint: "Pega tu resumen ejecutivo, el texto de tu deck, o cualquier detalle relevante — equipo, tracción, fondeo.",
+    submitVideoUrl: "URL de video (opcional)",
+    submitPdf: "Pitch deck (PDF, opcional)",
+    submitButton: "Enviar para evaluación",
+    submitBusinessEmail: "Email de negocio",
+    submitTeam: "Equipo",
+    submitTeamMemberName: "Nombre",
+    submitTeamMemberRole: "Rol (ej. CTO, COO)",
+    submitAddTeamMember: "+ Agregar miembro del equipo",
+    submitLinkedin: "LinkedIn (opcional)",
+    submitInstagram: "Instagram (opcional)",
+    submitX: "X / Twitter (opcional)",
+    submitting: "Evaluando…",
+    submitSuccessTitle: "Enviado",
+    submitSuccessBody: "Tu startup fue evaluada y registrada. Revisa \"Mis solicitudes\" para ver su estatus.",
+    statusSubmitted: "Enviado",
+    statusInProgress: "En progreso",
+    statusApproved: "Aprobado",
+    statusRejected: "No aprobado",
+    mySubmissionsTitle: "Mis solicitudes",
+    mySubmissionsEmpty: "Todavía no has enviado ninguna startup.",
+    adminSubmissionsEyebrow: "AUTO-ENVIADAS",
+    adminSubmissionsTitle: "Solicitudes de startups",
+    roleTitle: "¿Quién entra?",
+    roleHint: "Elige tu lado — el panel es distinto para cada uno.",
+    roleInvestor: "Soy inversionista",
+    roleInvestorHint: "Escanea, evalúa y gestiona el pipeline de deal-flow.",
+    roleStartup: "Soy una startup",
+    roleStartupHint: "Envía tu startup para evaluación y sigue su estatus.",
+    switchRole: "Cambiar de rol",
+    tabScan: "Escaneo",
+    tabSubmissionsReceived: "Solicitudes recibidas",
   },
   de: {
     title: "DACH Startup Intake",
@@ -655,6 +790,51 @@ export const copy: Record<Language, Dict> = {
     archiveEmpty: "Noch keine Startups analysiert.",
     archiveSeenTimes: "{n}× gesehen",
     poweredBy: "Powered by The VC Brain",
+    submitStartupBtn: "Startup einreichen",
+    mySubmissionsBtn: "Meine Einreichungen",
+    submitModalTitle: "Startup einreichen",
+    submitModalHint: "Dieselbe Bewertung wie beim Scout mit öffentlichen Quellen — nur dass du es uns direkt sagst, statt dass wir es suchen müssen.",
+    submitCompany: "Firmenname",
+    submitFounderName: "Name des Founders",
+    submitRole: "Rolle",
+    submitCountry: "Sitzland",
+    submitWebsite: "Website",
+    submitSection: "Sektion",
+    submitRoundSize: "Rundengröße",
+    submitPitch: "Pitch",
+    submitExtraText: "Zusätzliche Infos / Pitch-Deck-Inhalt",
+    submitExtraTextHint: "Füge deine Zusammenfassung, den Deck-Text oder relevante Details ein — Team, Traktion, Finanzierung.",
+    submitVideoUrl: "Video-URL (optional)",
+    submitPdf: "Pitch Deck (PDF, optional)",
+    submitButton: "Zur Bewertung einreichen",
+    submitBusinessEmail: "Geschäftliche E-Mail",
+    submitTeam: "Team",
+    submitTeamMemberName: "Name",
+    submitTeamMemberRole: "Rolle (z. B. CTO, COO)",
+    submitAddTeamMember: "+ Teammitglied hinzufügen",
+    submitLinkedin: "LinkedIn (optional)",
+    submitInstagram: "Instagram (optional)",
+    submitX: "X / Twitter (optional)",
+    submitting: "Wird bewertet…",
+    submitSuccessTitle: "Eingereicht",
+    submitSuccessBody: "Dein Startup wurde bewertet und erfasst. Prüfe \"Meine Einreichungen\" für den Status.",
+    statusSubmitted: "Eingereicht",
+    statusInProgress: "In Bearbeitung",
+    statusApproved: "Genehmigt",
+    statusRejected: "Abgelehnt",
+    mySubmissionsTitle: "Meine Einreichungen",
+    mySubmissionsEmpty: "Du hast noch kein Startup eingereicht.",
+    adminSubmissionsEyebrow: "SELBST EINGEREICHT",
+    adminSubmissionsTitle: "Startup-Einreichungen",
+    roleTitle: "Wer meldet sich an?",
+    roleHint: "Wähle deine Seite — der Arbeitsbereich ist für jede Seite anders.",
+    roleInvestor: "Ich bin Investor",
+    roleInvestorHint: "Scouten, bewerten und die Deal-Flow-Pipeline verwalten.",
+    roleStartup: "Ich bin ein Startup",
+    roleStartupHint: "Reiche dein Startup zur Bewertung ein und verfolge den Status.",
+    switchRole: "Rolle wechseln",
+    tabScan: "Scan",
+    tabSubmissionsReceived: "Erhaltene Einreichungen",
   },
 };
 

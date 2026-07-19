@@ -1,0 +1,3 @@
+business_email='contact@fieldstestco.example'
+social_links=[SocialLink(platform='website', url='https://fieldstestco.example', label='Website'), SocialLink(platform='linkedin', url='https://linkedin.com/company/fieldstestco', label='Linkedin'), SocialLink(platform='instagram', url='https://instagram.com/fieldstestco', label='Instagram')]
+team=[('Petra Hoffmann', 'CEO', 'founder'), ('Jonas Weber', 'CTO', 'executive'), ('Lea Krause', 'Head of Product', 'executive')]

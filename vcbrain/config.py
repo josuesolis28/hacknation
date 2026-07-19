@@ -55,6 +55,11 @@ class Settings:
     # Al acercarse al límite se dejan de lanzar nuevas queries de búsqueda.
     max_search_cost_usd: float = field(default_factory=lambda: float(os.getenv("MAX_SEARCH_COST_USD", "2.0")))
 
+    # Secreto de licencia: sin el valor correcto, el backend no arranca.
+    # Ver vcbrain/license_gate.py — el hash esperado vive en el código, el
+    # valor en texto plano solo lo tiene el autor.
+    license_key: str = field(default_factory=lambda: os.getenv("LICENSE_KEY", ""))
+
     # Postgres (Railway u otro host) para producción. Si se deja vacío, la
     # app cae de vuelta a un archivo SQLite local (útil en desarrollo sin
     # tener que levantar Postgres).
