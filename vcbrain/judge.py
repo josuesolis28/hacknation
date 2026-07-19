@@ -8,6 +8,7 @@ import json
 import re
 
 from . import llm
+from .cost import CostTracker
 from .models import (
     CriterionScore,
     FounderProfile,
@@ -534,13 +535,15 @@ def _is_dach(founder: FounderProfile) -> bool:
     )
 
 
-def judge(query: str, hits: list[SearchHit]) -> tuple[list[FounderProfile], str]:
+def judge(
+    query: str, hits: list[SearchHit], budget: CostTracker | None = None
+) -> tuple[list[FounderProfile], str]:
     """Evalúa hits y devuelve solo fundadores DACH ordenados por score."""
     if not hits:
         return [], "n/a"
 
     raw, provider = llm.complete(
-        SYSTEM_PROMPT, _build_user_prompt(query, hits), max_tokens=12000
+        SYSTEM_PROMPT, _build_user_prompt(query, hits), max_tokens=12000, budget=budget, label="judge"
     )
     data = _extract_json(raw)
 

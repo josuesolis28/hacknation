@@ -14,7 +14,7 @@ from vcbrain.auth import current_user, issue_token, request_client_id, verify_cr
 from vcbrain.models import FounderProfile
 from vcbrain.pipeline import run_maschmeyer_pipeline, run_pipeline
 from vcbrain.profiles import analyze_public_profiles
-from vcbrain.translation import LANGUAGES, translate
+from vcbrain.translation import LANGUAGES, translate, translate_many
 
 app = FastAPI(title="The VC Brain API", version="1.0.0")
 
@@ -44,6 +44,11 @@ class ProfileRequest(BaseModel):
 
 class TranslationRequest(BaseModel):
     text: str
+    language: str
+
+
+class BatchTranslationRequest(BaseModel):
+    texts: list[str]
     language: str
 
 
@@ -133,3 +138,13 @@ def translate_content(req: TranslationRequest, _: str = Depends(current_user)):
     if req.language not in LANGUAGES:
         raise HTTPException(status_code=422, detail="Idioma no soportado.")
     return {"text": translate(req.text, req.language), "language": req.language}
+
+
+@app.post("/api/translate/batch")
+def translate_batch(req: BatchTranslationRequest, _: str = Depends(current_user)):
+    """Traduce varios textos en una sola llamada al modelo (una tarjeta = una
+    llamada) en vez de una llamada por campo."""
+    if req.language not in LANGUAGES:
+        raise HTTPException(status_code=422, detail="Idioma no soportado.")
+    translated = translate_many(tuple(req.texts), req.language)
+    return {"texts": list(translated), "language": req.language}

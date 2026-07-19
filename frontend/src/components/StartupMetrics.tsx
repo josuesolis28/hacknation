@@ -1,8 +1,10 @@
 import type { FounderProfile } from "../types";
 import { Language, copy } from "../i18n";
+import { useTranslatedFounder } from "../hooks/useTranslatedFounder";
 
 export function StartupMetrics({ founder, language }: { founder: FounderProfile | null; language: Language }) {
   const text = copy[language];
+  const translated = useTranslatedFounder(founder, language);
   if (!founder) {
     return (
       <section className="startup-metrics empty">
@@ -17,9 +19,9 @@ export function StartupMetrics({ founder, language }: { founder: FounderProfile 
   const email = founder.business_email || founder.contact_hint || text.noPublicData;
   const section = founder.section || founder.area || text.noPublicData;
   const round = founder.round_size || founder.capital_raised || text.noPublicData;
-  const activity = founder.activity_summary || founder.justification || text.noPublicData;
-  const pitch = founder.pitch || text.noPublicData;
-  const other = founder.other_info || founder.impact_summary || "";
+  const activity = translated?.activity_summary || translated?.justification || text.noPublicData;
+  const pitch = translated?.pitch || text.noPublicData;
+  const other = translated?.other_info || translated?.impact_summary || "";
 
   return (
     <section className="startup-metrics">

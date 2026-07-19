@@ -43,8 +43,17 @@ class Settings:
     openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o"))
     # Modelo usado para el Scout (búsqueda web vía la tool "web_search" de OpenAI).
     openai_search_model: str = field(default_factory=lambda: os.getenv("OPENAI_SEARCH_MODEL", "gpt-4o"))
+    # Modelo barato para traducción (no necesita razonamiento, solo idioma).
+    openai_translate_model: str = field(
+        default_factory=lambda: os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-4o-mini")
+    )
 
     search_max_results: int = field(default_factory=lambda: int(os.getenv("SEARCH_MAX_RESULTS", "8")))
+    # Cuántas queries de búsqueda se disparan en paralelo hacia OpenAI.
+    search_concurrency: int = field(default_factory=lambda: int(os.getenv("SEARCH_CONCURRENCY", "8")))
+    # Tope de costo estimado (USD) por corrida de búsqueda (Scout + Judge).
+    # Al acercarse al límite se dejan de lanzar nuevas queries de búsqueda.
+    max_search_cost_usd: float = field(default_factory=lambda: float(os.getenv("MAX_SEARCH_COST_USD", "2.0")))
     admin_username: str = field(default_factory=lambda: os.getenv("VCBRAIN_ADMIN_USERNAME", "admin12345"))
     admin_password: str = field(default_factory=lambda: os.getenv("VCBRAIN_ADMIN_PASSWORD", "admin12345"))
     jwt_secret: str = field(default_factory=_stable_jwt_secret)

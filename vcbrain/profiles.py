@@ -10,6 +10,8 @@ from functools import lru_cache
 from urllib.parse import urlparse
 
 from . import llm
+from .config import settings
+from .cost import CostTracker
 from .search import web_search_hits
 
 
@@ -57,10 +59,10 @@ def _social_from_hits(hits: list[dict[str, str]]) -> list[dict[str, str]]:
     return collected[:8]
 
 
-def _hits(query: str) -> list[dict[str, str]]:
+def _hits(query: str, budget: CostTracker) -> list[dict[str, str]]:
     suffixes = ("LinkedIn", "X Twitter", "Instagram", "team CTO founder", "Tecnológico de Monterrey OR TecLeap")
     queries = [f"{query} {suffix}" for suffix in suffixes]
-    hits = web_search_hits(queries, max_results=3)
+    hits = web_search_hits(queries, max_results=3, budget=budget)
     return [
         {"title": h["title"], "url": h["url"], "content": h["content"][:1800]}
         for h in hits[:12]
@@ -70,8 +72,9 @@ def _hits(query: str) -> list[dict[str, str]]:
 @lru_cache(maxsize=256)
 def analyze_public_profiles(name: str, company: str, role: str) -> dict:
     """Construye una red de personas y perfiles públicos; el caché evita repetición de APIs."""
+    budget = CostTracker(limit_usd=settings.max_search_cost_usd)
     query = f'"{name}" "{company}" {role}'.strip()
-    hits = _hits(query)
+    hits = _hits(query, budget)
     evidence = "\n\n".join(f"[{i + 1}] {h['title']}\n{h['url']}\n{h['content']}" for i, h in enumerate(hits))
     system = """Eres analista de talento B2B. A partir de fuentes públicas, arma una red verificable.
 No inventes perfiles, cargos, relaciones ni URLs. No infieras cuentas sociales si la URL no aparece.
@@ -82,7 +85,9 @@ Devuelve JSON: {
   "citations":[{"title":"...","url":"..."}]
 }. Incluye fundador, CTO y ejecutivos relevantes solo cuando tengan evidencia.
 social_links solo con URLs explícitas en las fuentes."""
-    raw, provider = llm.complete(system, f"Objetivo: {query}\n\nFuentes públicas:\n{evidence}", max_tokens=3500)
+    raw, provider = llm.complete(
+        system, f"Objetivo: {query}\n\nFuentes públicas:\n{evidence}", max_tokens=3500, budget=budget, label="profiles"
+    )
     try:
         data = json.loads(raw.strip().removeprefix("```json").removesuffix("```").strip())
     except json.JSONDecodeError:

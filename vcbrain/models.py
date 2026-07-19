@@ -140,6 +140,7 @@ class PipelineResult:
     founders: list[FounderProfile] = field(default_factory=list)
     raw_hits: list[SearchHit] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    cost_usd: float = 0.0  # costo estimado de esta corrida (ver vcbrain.cost)
 
     def to_dict(self) -> dict:
         return {
@@ -148,4 +149,5 @@ class PipelineResult:
             "founders": [f.to_dict() for f in self.founders],
             "raw_hits": [h.to_dict() for h in self.raw_hits],
             "errors": self.errors,
+            "cost_usd": round(self.cost_usd, 4),
         }

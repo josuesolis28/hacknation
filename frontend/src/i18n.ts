@@ -141,6 +141,15 @@ type Dict = {
   checkGrantedTitle: string;
   pitchPanelEmpty: string;
   pitchPanelEyebrow: string;
+  generateCheck: string;
+  viewProfile: string;
+  discardFeedback: string;
+  generateOverride: string;
+  undoDiscard: string;
+  discardedPill: string;
+  tabGeneral: string;
+  tabInternal: string;
+  manualApproval: string;
 };
 
 export const copy: Record<Language, Dict> = {
@@ -271,6 +280,15 @@ export const copy: Record<Language, Dict> = {
     checkGrantedTitle: "Check issued",
     pitchPanelEmpty: "Select a startup on the left to see its pitch.",
     pitchPanelEyebrow: "PITCH",
+    generateCheck: "Generate check",
+    viewProfile: "View profile",
+    discardFeedback: "Discard & give feedback",
+    generateOverride: "Generate anyway",
+    undoDiscard: "Undo",
+    discardedPill: "✕ DISCARDED",
+    tabGeneral: "General information",
+    tabInternal: "Internal information",
+    manualApproval: "Manually approved",
   },
   es: {
     title: "Intake startups DACH",
@@ -399,6 +417,15 @@ export const copy: Record<Language, Dict> = {
     checkGrantedTitle: "Cheque emitido",
     pitchPanelEmpty: "Selecciona una startup a la izquierda para ver su pitch.",
     pitchPanelEyebrow: "PITCH",
+    generateCheck: "Generar cheque",
+    viewProfile: "Ver perfil",
+    discardFeedback: "Descartar y dar feedback",
+    generateOverride: "Generar de todas formas",
+    undoDiscard: "Deshacer",
+    discardedPill: "✕ DESCARTADA",
+    tabGeneral: "Información general",
+    tabInternal: "Información interna",
+    manualApproval: "Aprobada manualmente",
   },
   de: {
     title: "DACH Startup Intake",
@@ -527,6 +554,15 @@ export const copy: Record<Language, Dict> = {
     checkGrantedTitle: "Scheck ausgestellt",
     pitchPanelEmpty: "Wähle links ein Startup, um den Pitch zu sehen.",
     pitchPanelEyebrow: "PITCH",
+    generateCheck: "Scheck generieren",
+    viewProfile: "Profil ansehen",
+    discardFeedback: "Verwerfen & Feedback geben",
+    generateOverride: "Trotzdem generieren",
+    undoDiscard: "Rückgängig",
+    discardedPill: "✕ VERWORFEN",
+    tabGeneral: "Allgemeine Informationen",
+    tabInternal: "Interne Informationen",
+    manualApproval: "Manuell genehmigt",
   },
 };
 
@@ -569,6 +605,79 @@ export function trafficDescription(light: string | undefined, language: Language
   if (light === "green") return t.trafficGreenDesc;
   if (light === "yellow") return t.trafficYellowDesc;
   return t.trafficRedDesc;
+}
+
+// El backend siempre genera criteria[].name y requirements[].name en español
+// (son etiquetas fijas de la rúbrica, ver vcbrain/judge.py RUBRIC/GATES). En
+// vez de pagar una llamada a IA para traducir estas ~11 etiquetas conocidas,
+// se mapean localmente — instantáneo y gratis.
+const CRITERION_LABELS: Record<string, Record<Language, string>> = {
+  "Equipo y founder-market fit": {
+    es: "Equipo y founder-market fit",
+    en: "Team & founder-market fit",
+    de: "Team & Founder-Market-Fit",
+  },
+  "Producto y capacidad técnica demostrada (MVP/código)": {
+    es: "Producto y capacidad técnica demostrada (MVP/código)",
+    en: "Product & demonstrated technical capability (MVP/code)",
+    de: "Produkt & nachgewiesene technische Fähigkeit (MVP/Code)",
+  },
+  "Validación del problema y tracción temprana": {
+    es: "Validación del problema y tracción temprana",
+    en: "Problem validation & early traction",
+    de: "Problemvalidierung & frühe Traktion",
+  },
+  "Tamaño de mercado y timing": {
+    es: "Tamaño de mercado y timing",
+    en: "Market size & timing",
+    de: "Marktgröße & Timing",
+  },
+  "Diferenciación / moat defendible": {
+    es: "Diferenciación / moat defendible",
+    en: "Differentiation / defensible moat",
+    de: "Differenzierung / verteidigbarer Moat",
+  },
+};
+
+const REQUIREMENT_LABELS: Record<string, Record<Language, string>> = {
+  "Based in Germany, Switzerland or Austria (requisito indispensable)": {
+    es: "Based in Germany, Switzerland or Austria (requisito indispensable)",
+    en: "Based in Germany, Switzerland or Austria (mandatory)",
+    de: "Sitz in Deutschland, Schweiz oder Österreich (zwingend)",
+  },
+  "Encaja en una sección del formulario (HealthTech, FinTech, Food & AgTech, …)": {
+    es: "Encaja en una sección del formulario (HealthTech, FinTech, Food & AgTech, …)",
+    en: "Fits an intake form section (HealthTech, FinTech, Food & AgTech, …)",
+    de: "Passt zu einer Formular-Sektion (HealthTech, FinTech, Food & AgTech, …)",
+  },
+  "Fundador técnico o equipo identificable con evidencia real": {
+    es: "Fundador técnico o equipo identificable con evidencia real",
+    en: "Technical founder or identifiable team with real evidence",
+    de: "Technischer Founder oder identifizierbares Team mit echter Evidenz",
+  },
+  "Etapa early (pre-seed / seed / Series A temprana)": {
+    es: "Etapa early (pre-seed / seed / Series A temprana)",
+    en: "Early stage (pre-seed / seed / early Series A)",
+    de: "Frühphase (Pre-Seed / Seed / frühe Series A)",
+  },
+  "Producto tangible: MVP, demo, repo o prototipo funcional": {
+    es: "Producto tangible: MVP, demo, repo o prototipo funcional",
+    en: "Tangible product: MVP, demo, repo or working prototype",
+    de: "Greifbares Produkt: MVP, Demo, Repo oder funktionierender Prototyp",
+  },
+  "Problema validado: usuarios, clientes o señal de demanda": {
+    es: "Problema validado: usuarios, clientes o señal de demanda",
+    en: "Validated problem: users, customers or demand signal",
+    de: "Validiertes Problem: Nutzer, Kunden oder Nachfragesignal",
+  },
+};
+
+export function criterionLabel(name: string, language: Language): string {
+  return CRITERION_LABELS[name]?.[language] ?? name;
+}
+
+export function requirementLabel(name: string, language: Language): string {
+  return REQUIREMENT_LABELS[name]?.[language] ?? name;
 }
 
 export function relationshipLabel(relationship: string | undefined, language: Language): string {

@@ -85,6 +85,17 @@ export function translateText(text: string, language: "es" | "en" | "de"): Promi
   }).then((r) => handle<{ text: string }>(r));
 }
 
+export function translateBatch(
+  texts: string[],
+  language: "es" | "en" | "de",
+): Promise<{ texts: string[] }> {
+  return fetch("/api/translate/batch", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ texts, language }),
+  }).then((r) => handle<{ texts: string[]; language: string }>(r));
+}
+
 export function fetchHealth(): Promise<{ default_language?: string; languages?: string[] }> {
   return fetch("/api/health").then((r) => handle<{ default_language?: string; languages?: string[] }>(r));
 }

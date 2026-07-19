@@ -113,3 +113,19 @@
 .check-modal-body .foot { display: flex; justify-content: space-between; font-size: 11.5px; color: #7a8996; border-top: 1px dashed #cfe0e0; padding-top: 12px; }
 @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @media(max-width:640px){.modal-panel-head{flex-wrap:wrap;}}
+
+/* Acordeón inline por tarjeta (colorimetría: verde/amarillo/rojo) */
+.startup-tile.expanded { grid-column: 1 / -1; cursor: default; }
+.startup-tile.discarded { opacity: .55; }
+.tile-expand { margin-top: 10px; padding-top: 12px; border-top: 1px solid #edf1f3; display: grid; gap: 10px; cursor: default; }
+.tile-why { margin: 0; font-size: 12.5px; color: #5d7280; line-height: 1.5; }
+.tile-feedback { margin: 0; padding-left: 18px; font-size: 12.5px; color: #5d7280; line-height: 1.6; }
+.tile-feedback li { margin: 2px 0; }
+.tile-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.decision-pill.discarded { color: #8a4b3d; background: #f4e7e2; }
+.manual-badge { color: #8a6d0c; background: #fff3d6; border-color: #ecd9a0; }
+
+/* Tabs del modal "Ver perfil" */
+.modal-tabs { display: flex; gap: 6px; padding: 0 20px 14px; }
+.modal-tabs button { flex: 1; padding: 9px 12px; border-radius: 8px; border: 1px solid #dfe8ed; background: #f7fafb; color: #5d7280; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .15s; }
+.modal-tabs button.active { background: #0c6b76; border-color: #0c6b76; color: #fff; }

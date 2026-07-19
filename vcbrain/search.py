@@ -7,10 +7,12 @@ al mismo contrato SearchHit que consume el Judge.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from openai import OpenAI
 
 from .config import settings
+from .cost import CostTracker
 from .models import SearchHit
 from .thesis import maschmeyer_queries
 
@@ -25,27 +27,30 @@ QUERY_TEMPLATES = [
 ]
 
 
-def scout(query: str, max_results: int | None = None) -> list[SearchHit]:
+def scout(query: str, max_results: int | None = None, budget: CostTracker | None = None) -> list[SearchHit]:
     """Ejecuta varias búsquedas vía OpenAI y devuelve hits deduplicados por URL."""
     return _search_queries(
         [template.format(query=query) for template in QUERY_TEMPLATES],
         max_results=max_results,
+        budget=budget,
     )
 
 
-def scout_maschmeyer(max_results: int | None = None) -> list[SearchHit]:
+def scout_maschmeyer(max_results: int | None = None, budget: CostTracker | None = None) -> list[SearchHit]:
     """Busca automáticamente toda la tesis de Maschmeyer Group.
 
     Limita cada combinación vertical/región para distribuir la cobertura y
     no agotar la cuota de la API con una sola geografía dominante.
     """
-    return _search_queries(maschmeyer_queries(), max_results=max_results or 3)
+    return _search_queries(maschmeyer_queries(), max_results=max_results or 3, budget=budget)
 
 
-def _search_queries(queries: list[str], max_results: int | None = None) -> list[SearchHit]:
+def _search_queries(
+    queries: list[str], max_results: int | None = None, budget: CostTracker | None = None
+) -> list[SearchHit]:
     """Ejecuta consultas de búsqueda web con ChatGPT y deduplica por URL."""
     hits: dict[str, SearchHit] = {}
-    for item in web_search_hits(queries, max_results=max_results):
+    for item in web_search_hits(queries, max_results=max_results, budget=budget):
         url = item["url"]
         if url in hits:
             continue
@@ -60,15 +65,30 @@ def _search_queries(queries: list[str], max_results: int | None = None) -> list[
     return sorted(hits.values(), key=lambda h: h.score, reverse=True)
 
 
-def web_search_hits(queries: list[str], max_results: int | None = None) -> list[dict]:
-    """Ejecuta N consultas contra la tool "web_search" de OpenAI y devuelve
-    dicts {title, url, content, score} deduplicados por URL. Reutilizable por
-    cualquier capa que necesite evidencia web (Scout, enriquecimiento de perfiles)."""
+def web_search_hits(
+    queries: list[str], max_results: int | None = None, budget: CostTracker | None = None
+) -> list[dict]:
+    """Ejecuta N consultas contra la tool "web_search" de OpenAI en paralelo y
+    devuelve dicts {title, url, content, score} deduplicados por URL.
+    Reutilizable por cualquier capa que necesite evidencia web (Scout,
+    enriquecimiento de perfiles).
+
+    Las queries se lanzan concurrentemente (hilos, ya que el cliente HTTP de
+    OpenAI libera el GIL en la espera de red) para no pagar la latencia de
+    cada búsqueda de forma secuencial.
+
+    Si se pasa ``budget``, cada llamada registra su costo estimado (tokens +
+    tarifa de la tool) y, apenas se alcanza el límite configurado, las
+    queries restantes se saltan sin llamar a la API — la corrida se acota en
+    vez de seguir gastando. Por la concurrencia, el corte no es exacto (se
+    puede pasar por el costo de ~`search_concurrency` llamadas ya en vuelo).
+    """
     client = OpenAI(api_key=settings.openai_api_key)
     limit = max_results or settings.search_max_results
 
-    results: dict[str, dict] = {}
-    for query in queries:
+    def _run(query: str) -> list[dict]:
+        if budget is not None and budget.over_limit():
+            return []
         try:
             response = client.responses.create(
                 model=settings.openai_search_model,
@@ -83,11 +103,28 @@ def web_search_hits(queries: list[str], max_results: int | None = None) -> list[
         except Exception as exc:
             # Una consulta fallida no debe tumbar el pipeline completo
             logger.warning("Búsqueda OpenAI falló para %r: %s", query, exc)
-            continue
+            return []
+        if budget is not None:
+            budget.record_web_search_call("scout")
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                budget.record_tokens(
+                    "scout",
+                    settings.openai_search_model,
+                    getattr(usage, "input_tokens", 0),
+                    getattr(usage, "output_tokens", 0),
+                )
+        return _extract_citations(response)
 
-        for item in _extract_citations(response):
-            if item["url"] not in results:
-                results[item["url"]] = item
+    results: dict[str, dict] = {}
+    if not queries:
+        return []
+    workers = max(1, min(settings.search_concurrency, len(queries)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for items in pool.map(_run, queries):
+            for item in items:
+                if item["url"] not in results:
+                    results[item["url"]] = item
 
     return list(results.values())
 

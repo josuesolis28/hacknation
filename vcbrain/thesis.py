@@ -66,16 +66,18 @@ DISCOVERY_SOURCES = (
 
 
 def maschmeyer_queries() -> list[str]:
-    """Una consulta por sección × país DACH para no sesgar un vertical."""
+    """Dos consultas por sección (cubren los 3 países DACH en el mismo texto)
+    en vez de una por sección×país: cada llamada al tool "web_search" de
+    OpenAI es cara (tokens de contexto + tarifa por llamada), así que se
+    evita triplicar el número de queries sin perder cobertura de la tesis."""
     source_terms = " OR ".join(f'"{source}"' for source in DISCOVERY_SOURCES)
     queries = []
     for section in MVP_SECTIONS:
-        for country in ("Germany", "Switzerland", "Austria"):
-            queries.append(
-                f'"{section}" startup OR founder "{country}" '
-                f'(raising OR fundraising OR "seed round" OR "Series A" OR pitch) '
-                f'({source_terms})'
-            )
+        queries.append(
+            f'"{section}" startup OR founder (Germany OR Switzerland OR Austria OR DACH) '
+            f'(raising OR fundraising OR "seed round" OR "Series A" OR pitch) '
+            f'({source_terms})'
+        )
         queries.append(
             f'"{section}" startup founder DACH OR "Germany" OR Switzerland OR Austria '
             f'email OR contact OR raising OR pitch'

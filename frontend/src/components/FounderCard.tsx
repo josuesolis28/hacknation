@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
-import type { FounderProfile } from "../types";
-import { generateOutreach, translateText } from "../api";
+import { useState } from "react";
+import type { Check, FounderProfile } from "../types";
+import { generateOutreach } from "../api";
+import { useTranslatedFounder } from "../hooks/useTranslatedFounder";
 import {
   Language,
   confidenceLabel,
   copy,
+  criterionLabel,
   originLabel,
   relationshipLabel,
+  requirementLabel,
   trafficDescription,
   trafficLabel,
 } from "../i18n";
@@ -20,9 +23,20 @@ function ApprovedCheckIcon() {
   );
 }
 
-function CheckModal({ founder, language, onClose }: { founder: FounderProfile; language: Language; onClose: () => void }) {
+function buildManualCheck(founder: FounderProfile): Check {
+  return {
+    check_id: `MGV-${new Date().getFullYear()}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`,
+    amount_usd: 100_000,
+    issued_to: founder.name,
+    company: founder.company,
+    issued_by: "Maschmeyer Group Ventures",
+    date: new Date().toISOString().slice(0, 10),
+    status: "issued",
+  };
+}
+
+function CheckModal({ check, language, onClose }: { check: Check; language: Language; onClose: () => void }) {
   const text = copy[language];
-  if (!founder.check) return null;
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="check-modal-panel" onClick={(e) => e.stopPropagation()}>
@@ -41,16 +55,16 @@ function CheckModal({ founder, language, onClose }: { founder: FounderProfile; l
             <span className="stamp">{text.issued}</span>
           </div>
           <div className="bank line" style={{ animationDelay: ".3s" }}>
-            <span className="name">{founder.check.issued_by}</span>
-            <span className="id">Nº {founder.check.check_id}</span>
+            <span className="name">{check.issued_by}</span>
+            <span className="id">Nº {check.check_id}</span>
           </div>
-          <div className="amount">${founder.check.amount_usd.toLocaleString("en-US")} USD</div>
+          <div className="amount">${check.amount_usd.toLocaleString("en-US")} USD</div>
           <p className="payto line" style={{ animationDelay: ".5s" }}>
-            <span>{text.payTo}</span> {founder.check.issued_to} · {founder.check.company}
+            <span>{text.payTo}</span> {check.issued_to} · {check.company}
           </p>
           <div className="foot line" style={{ animationDelay: ".6s" }}>
             <span>
-              {text.issueDate} {founder.check.date}
+              {text.issueDate} {check.date}
             </span>
             <span>{text.instant}</span>
           </div>
@@ -60,23 +74,26 @@ function CheckModal({ founder, language, onClose }: { founder: FounderProfile; l
   );
 }
 
+type Tab = "general" | "internal";
+
 function StartupModal({
   founder,
   language,
+  forced,
   onClose,
-  onOpenCheck,
 }: {
   founder: FounderProfile;
   language: Language;
+  forced: boolean;
   onClose: () => void;
-  onOpenCheck: () => void;
 }) {
+  const [tab, setTab] = useState<Tab>("general");
   const [outreach, setOutreach] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [msgError, setMsgError] = useState<string | null>(null);
-  const [translatedJustification, setTranslatedJustification] = useState(founder.justification);
+  const translated = useTranslatedFounder(founder, language);
   const text = copy[language];
-  const approved = founder.decision === "approved";
+  const approved = founder.decision === "approved" || forced;
   const origin = originLabel(founder, language);
   const confidence = confidenceLabel(founder.origin_confidence, language);
   const skills = founder.skills?.length ? founder.skills : founder.signals.slice(0, 4);
@@ -91,24 +108,6 @@ function StartupModal({
     : founder.name
       ? [{ name: founder.name, role: founder.role || text.relFounder, relationship: "founder", skills: founder.skills || [], area: founder.area || founder.section || "", profile_url: "" }]
       : [];
-
-  useEffect(() => {
-    if (language === "es") {
-      setTranslatedJustification(founder.justification);
-      return;
-    }
-    let active = true;
-    void translateText(founder.justification, language)
-      .then((value) => {
-        if (active) setTranslatedJustification(value.text);
-      })
-      .catch(() => {
-        if (active) setTranslatedJustification(founder.justification);
-      });
-    return () => {
-      active = false;
-    };
-  }, [founder.justification, language]);
 
   const onOutreach = async () => {
     setLoadingMsg(true);
@@ -150,9 +149,20 @@ function StartupModal({
             </span>
             {founder.section && <span className="section-badge">{founder.section}</span>}
           </div>
-          <span className={`decision-pill ${founder.decision}`}>{approved ? text.approved : text.rejected}</span>
+          <span className={`decision-pill ${approved ? "approved" : founder.decision}`}>
+            {approved ? text.approved : text.rejected}
+          </span>
           <button className="modal-close" onClick={onClose} aria-label={text.closeModal}>
             ✕
+          </button>
+        </div>
+
+        <div className="modal-tabs">
+          <button className={tab === "general" ? "active" : ""} onClick={() => setTab("general")}>
+            {text.tabGeneral}
+          </button>
+          <button className={tab === "internal" ? "active" : ""} onClick={() => setTab("internal")}>
+            {text.tabInternal}
           </button>
         </div>
 
@@ -180,145 +190,145 @@ function StartupModal({
           </article>
         </div>
 
-        <div className="card-body">
-          <h4>{text.origin}</h4>
-          <p className="just">
-            {origin}
-            {founder.origin_region ? ` · ${founder.origin_region}` : ""}
-            {` · ${confidence}`}
-            {founder.incubation_program ? ` · ${founder.incubation_program}` : ""}
-          </p>
+        {tab === "general" && (
+          <div className="card-body">
+            <h4>{text.origin}</h4>
+            <p className="just">
+              {origin}
+              {founder.origin_region ? ` · ${founder.origin_region}` : ""}
+              {` · ${confidence}`}
+              {founder.incubation_program ? ` · ${founder.incubation_program}` : ""}
+            </p>
 
-          {(founder.activity_summary || founder.pitch) && (
-            <>
-              <h4>{text.activityLabel}</h4>
-              <p className="just">{founder.activity_summary || founder.pitch}</p>
-            </>
-          )}
+            {(translated?.activity_summary || translated?.pitch) && (
+              <>
+                <h4>{text.activityLabel}</h4>
+                <p className="just">{translated?.activity_summary || translated?.pitch}</p>
+              </>
+            )}
 
-          {founder.pitch && founder.activity_summary && (
-            <>
-              <h4>{text.pitchLabel}</h4>
-              <p className="just">{founder.pitch}</p>
-            </>
-          )}
+            {translated?.pitch && translated?.activity_summary && (
+              <>
+                <h4>{text.pitchLabel}</h4>
+                <p className="just">{translated.pitch}</p>
+              </>
+            )}
 
-          <h4>{text.fundTeam}</h4>
-          {team.length === 0 ? (
-            <p className="muted">{text.fundTeamEmpty}</p>
-          ) : (
-            <div className="team-roster">
-              {team.map((member, i) => (
-                <article className="team-member" key={`${member.name}-${i}`}>
-                  <div className="team-member-head">
-                    <strong>{member.name}</strong>
-                    <span className={`rel-pill rel-${member.relationship}`}>
-                      {relationshipLabel(member.relationship, language)}
-                    </span>
-                  </div>
-                  <p className="team-member-role">
-                    {member.role || "—"}
-                    {member.area ? ` · ${member.area}` : ""}
-                  </p>
-                  {member.skills?.length > 0 && (
-                    <div className="skill-chips">
-                      {member.skills.slice(0, 4).map((skill) => (
-                        <span className="skill-chip" key={skill}>
-                          {skill}
-                        </span>
-                      ))}
+            <h4>{text.fundTeam}</h4>
+            {team.length === 0 ? (
+              <p className="muted">{text.fundTeamEmpty}</p>
+            ) : (
+              <div className="team-roster">
+                {team.map((member, i) => (
+                  <article className="team-member" key={`${member.name}-${i}`}>
+                    <div className="team-member-head">
+                      <strong>{member.name}</strong>
+                      <span className={`rel-pill rel-${member.relationship}`}>
+                        {relationshipLabel(member.relationship, language)}
+                      </span>
                     </div>
-                  )}
-                  {member.profile_url && (
-                    <a className="evlink" href={member.profile_url} target="_blank" rel="noreferrer">
-                      {member.profile_url}
-                    </a>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
+                    <p className="team-member-role">
+                      {member.role || "—"}
+                      {member.area ? ` · ${member.area}` : ""}
+                    </p>
+                    {member.skills?.length > 0 && (
+                      <div className="skill-chips">
+                        {member.skills.slice(0, 4).map((skill) => (
+                          <span className="skill-chip" key={skill}>
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {member.profile_url && (
+                      <a className="evlink" href={member.profile_url} target="_blank" rel="noreferrer">
+                        {member.profile_url}
+                      </a>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
 
-          <h4>{text.justification}</h4>
-          <p className="just">{translatedJustification}</p>
+            {founder.signals.length > 0 && (
+              <>
+                <h4>{text.signals}</h4>
+                <div className="chips">
+                  {founder.signals.map((s, i) => (
+                    <span className="chip" key={i}>
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
 
-          <h4>{text.criteria}</h4>
-          {founder.criteria.map((c) => (
-            <div className="criterion" key={c.name}>
-              <div className="row">
+            {founder.evidence.length > 0 && (
+              <>
+                <h4>{text.evidence}</h4>
+                {founder.evidence.map((url) => (
+                  <a className="evlink" key={url} href={url} target="_blank" rel="noreferrer">
+                    {url}
+                  </a>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {tab === "internal" && (
+          <div className="card-body">
+            <h4>{text.justification}</h4>
+            <p className="just">{translated?.justification}</p>
+
+            <h4>{text.criteria}</h4>
+            {founder.criteria.map((c, i) => (
+              <div className="criterion" key={c.name}>
+                <div className="row">
+                  <span>
+                    {criterionLabel(c.name, language)}{" "}
+                    <span className="w">
+                      · {text.weight} {c.weight}%
+                    </span>
+                  </span>
+                  <span>{c.score}/100</span>
+                </div>
+                <div className="bar">
+                  <div style={{ width: `${c.score}%` }} />
+                </div>
+                {translated?.criteriaRationale[i] && <p className="rationale">{translated.criteriaRationale[i]}</p>}
+              </div>
+            ))}
+
+            <h4>{text.requirements}</h4>
+            {founder.requirements.map((r, i) => (
+              <div className={`req ${r.met ? "met" : "unmet"}`} key={r.name}>
+                <span className="mark">{r.met ? "✓" : "✗"}</span>
                 <span>
-                  {c.name}{" "}
-                  <span className="w">
-                    · {text.weight} {c.weight}%
-                  </span>
+                  {requirementLabel(r.name, language)}
+                  {translated?.requirementDetail[i] && <span className="detail"> — {translated.requirementDetail[i]}</span>}
                 </span>
-                <span>{c.score}/100</span>
               </div>
-              <div className="bar">
-                <div style={{ width: `${c.score}%` }} />
+            ))}
+
+            {!approved && (translated?.feedback.length ?? 0) > 0 && (
+              <div className="feedback">
+                <h4>{text.feedback}</h4>
+                <ul>
+                  {translated?.feedback.map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
               </div>
-              {c.rationale && <p className="rationale">{c.rationale}</p>}
-            </div>
-          ))}
+            )}
 
-          <h4>{text.requirements}</h4>
-          {founder.requirements.map((r) => (
-            <div className={`req ${r.met ? "met" : "unmet"}`} key={r.name}>
-              <span className="mark">{r.met ? "✓" : "✗"}</span>
-              <span>
-                {r.name}
-                {r.detail && <span className="detail"> — {r.detail}</span>}
-              </span>
-            </div>
-          ))}
-
-          {founder.signals.length > 0 && (
-            <>
-              <h4>{text.signals}</h4>
-              <div className="chips">
-                {founder.signals.map((s, i) => (
-                  <span className="chip" key={i}>
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </>
-          )}
-
-          {founder.evidence.length > 0 && (
-            <>
-              <h4>{text.evidence}</h4>
-              {founder.evidence.map((url) => (
-                <a className="evlink" key={url} href={url} target="_blank" rel="noreferrer">
-                  {url}
-                </a>
-              ))}
-            </>
-          )}
-
-          {approved && founder.check && (
-            <button className="outreach-btn check-cta" onClick={onOpenCheck}>
-              <ApprovedCheckIcon /> {text.viewCheck}
+            <button className="outreach-btn" onClick={onOutreach} disabled={loadingMsg}>
+              {loadingMsg ? text.drafting : text.outreach}
             </button>
-          )}
-
-          {!approved && founder.feedback.length > 0 && (
-            <div className="feedback">
-              <h4>{text.feedback}</h4>
-              <ul>
-                {founder.feedback.map((f, i) => (
-                  <li key={i}>{f}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <button className="outreach-btn" onClick={onOutreach} disabled={loadingMsg}>
-            {loadingMsg ? text.drafting : text.outreach}
-          </button>
-          {msgError && <div className="status error">{msgError}</div>}
-          {outreach && <div className="outreach-box">{outreach}</div>}
-        </div>
+            {msgError && <div className="status error">{msgError}</div>}
+            {outreach && <div className="outreach-box">{outreach}</div>}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -335,10 +345,18 @@ export function FounderCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
+  const [forced, setForced] = useState(false);
+  const [manualCheck, setManualCheck] = useState<Check | null>(null);
+  const [discarded, setDiscarded] = useState(false);
   const text = copy[language];
-  const approved = founder.decision === "approved";
+  const translated = useTranslatedFounder(founder, language);
+
+  const backendApproved = founder.decision === "approved";
+  const isApproved = backendApproved || forced;
+  const activeCheck = founder.check || manualCheck;
   const origin = originLabel(founder, language);
   const confidence = confidenceLabel(founder.origin_confidence, language);
   const light = founder.traffic_light || "red";
@@ -346,18 +364,28 @@ export function FounderCard({
   const lightDesc = trafficDescription(light, language);
   const email = founder.business_email || founder.contact_hint || "—";
 
-  const openModal = () => {
+  const toggle = () => {
     onSelect();
-    setModalOpen(true);
+    setExpanded((v) => !v);
+  };
+
+  const openCheck = () => {
+    if (!activeCheck) setManualCheck(buildManualCheck(founder));
+    setCheckOpen(true);
+  };
+
+  const forceApprove = () => {
+    setManualCheck(buildManualCheck(founder));
+    setForced(true);
   };
 
   return (
     <>
       <div
-        className={`startup-tile ${approved ? "approved" : ""} ${selected ? "selected" : ""}`}
-        onClick={openModal}
+        className={`startup-tile ${isApproved ? "approved" : ""} ${selected ? "selected" : ""} ${expanded ? "expanded" : ""} ${discarded ? "discarded" : ""}`}
+        onClick={toggle}
       >
-        {approved && founder.check && (
+        {isApproved && (
           <button
             className="approved-badge"
             title={text.viewCheck}
@@ -365,7 +393,7 @@ export function FounderCard({
             onClick={(e) => {
               e.stopPropagation();
               onSelect();
-              setCheckOpen(true);
+              openCheck();
             }}
           >
             <ApprovedCheckIcon />
@@ -392,18 +420,79 @@ export function FounderCard({
           {founder.country_code || origin} · {confidence}
         </span>
         {founder.section && <span className="section-badge">{founder.section}</span>}
-        <span className={`decision-pill ${founder.decision}`}>{approved ? text.approved : text.rejected}</span>
+        {discarded ? (
+          <span className="decision-pill discarded">{text.discardedPill}</span>
+        ) : (
+          <span className={`decision-pill ${isApproved ? "approved" : founder.decision}`}>
+            {isApproved ? text.approved : text.rejected}
+          </span>
+        )}
+        {forced && !discarded && <span className="section-badge manual-badge">{text.manualApproval}</span>}
+
+        {expanded && (
+          <div className="tile-expand" onClick={(e) => e.stopPropagation()}>
+            {discarded ? (
+              <>
+                {(translated?.feedback.length ?? 0) > 0 && (
+                  <ul className="tile-feedback">
+                    {translated?.feedback.map((f, i) => (
+                      <li key={i}>{f}</li>
+                    ))}
+                  </ul>
+                )}
+                <div className="tile-actions">
+                  <button className="outreach-btn" onClick={() => setDiscarded(false)}>
+                    {text.undoDiscard}
+                  </button>
+                </div>
+              </>
+            ) : isApproved ? (
+              <div className="tile-actions">
+                <button className="outreach-btn check-cta" onClick={openCheck}>
+                  <ApprovedCheckIcon /> {text.generateCheck}
+                </button>
+                <button
+                  className="outreach-btn profile-action"
+                  onClick={() => {
+                    onSelect();
+                    setModalOpen(true);
+                  }}
+                >
+                  {text.viewProfile}
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="tile-why">{lightDesc}</p>
+                {(translated?.feedback.length ?? 0) > 0 && (
+                  <ul className="tile-feedback">
+                    {translated?.feedback.map((f, i) => (
+                      <li key={i}>{f}</li>
+                    ))}
+                  </ul>
+                )}
+                <div className="tile-actions">
+                  <button className="outreach-btn" onClick={() => setDiscarded(true)}>
+                    {text.discardFeedback}
+                  </button>
+                  {light === "yellow" && (
+                    <button className="outreach-btn check-cta" onClick={forceApprove}>
+                      {text.generateOverride}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {modalOpen && (
-        <StartupModal
-          founder={founder}
-          language={language}
-          onClose={() => setModalOpen(false)}
-          onOpenCheck={() => setCheckOpen(true)}
-        />
+        <StartupModal founder={founder} language={language} forced={forced} onClose={() => setModalOpen(false)} />
       )}
-      {checkOpen && <CheckModal founder={founder} language={language} onClose={() => setCheckOpen(false)} />}
+      {checkOpen && activeCheck && (
+        <CheckModal check={activeCheck} language={language} onClose={() => setCheckOpen(false)} />
+      )}
     </>
   );
 }
