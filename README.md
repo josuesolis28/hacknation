@@ -27,9 +27,34 @@ pip install -r requirements.txt
 # 2. Configurar credenciales
 copy .env.example .env      # (Windows) — luego edita .env con tus claves
 
-# 3. Lanzar el dashboard
-streamlit run app.py
+# 3. Arrancar la API
+uvicorn api:app --reload --port 8000
+
+# 4. En otra terminal, arrancar el frontend
+cd frontend
+npm install
+npm run dev
 ```
+
+## Sourcing automático Maschmeyer Group
+
+Al abrir el frontend, el Scout inicia automáticamente la tesis de Maschmeyer
+Group; no requiere que el usuario escriba ni ejecute una búsqueda. Cubre
+pre-seed/seed en Estados Unidos, Europa y Latinoamérica para B2B SaaS,
+FinTech, InsurTech, HealthTech, RegTech, ciberseguridad y New Work.
+
+El endpoint también puede consumirse desde un CRM, un scheduler o cualquier
+cliente HTTP:
+
+```bash
+curl -X POST "http://localhost:8000/api/scout/maschmeyer?max_results=3"
+```
+
+La búsqueda combina fuentes de señal temprana incluidas en el documento de
+sourcing: aceleradoras, demo days, F6S, Product Hunt y comunidades de
+founders. Las fuentes comerciales como Harmonic, Crunchbase, PitchBook y
+LinkedIn Sales Navigator se pueden añadir después como conectores de
+enriquecimiento.
 
 ## Variables de entorno (`.env`)
 
