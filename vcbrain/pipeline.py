@@ -18,11 +18,11 @@ def run_pipeline(query: str, max_results: int | None = None) -> PipelineResult:
     try:
         result.raw_hits = scout(query, max_results=max_results)
     except Exception as exc:
-        result.errors.append(f"Scout (Tavily) falló: {exc}")
+        result.errors.append(f"Scout (OpenAI) falló: {exc}")
         return result
 
     if not result.raw_hits:
-        result.errors.append("Tavily no devolvió resultados para esta búsqueda.")
+        result.errors.append("La búsqueda de OpenAI no devolvió resultados para esta búsqueda.")
         return result
 
     try:
@@ -42,11 +42,11 @@ def run_maschmeyer_pipeline(max_results: int | None = None) -> PipelineResult:
     try:
         result.raw_hits = scout_maschmeyer(max_results=max_results)
     except Exception as exc:
-        result.errors.append(f"Scout (Tavily) falló: {exc}")
+        result.errors.append(f"Scout (OpenAI) falló: {exc}")
         return result
 
     if not result.raw_hits:
-        result.errors.append("Tavily no devolvió resultados para la tesis de Maschmeyer Group.")
+        result.errors.append("La búsqueda de OpenAI no devolvió resultados para la tesis de Maschmeyer Group.")
         return result
 
     try:

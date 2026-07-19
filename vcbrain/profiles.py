@@ -9,10 +9,8 @@ import re
 from functools import lru_cache
 from urllib.parse import urlparse
 
-from tavily import TavilyClient
-
 from . import llm
-from .config import settings
+from .search import web_search_hits
 
 
 def _platform_from_url(url: str) -> str:
@@ -60,18 +58,13 @@ def _social_from_hits(hits: list[dict[str, str]]) -> list[dict[str, str]]:
 
 
 def _hits(query: str) -> list[dict[str, str]]:
-    client = TavilyClient(api_key=settings.tavily_api_key)
-    results: dict[str, dict[str, str]] = {}
-    for suffix in ("LinkedIn", "X Twitter", "Instagram", "team CTO founder", "Tecnológico de Monterrey OR TecLeap"):
-        try:
-            response = client.search(query=f"{query} {suffix}", search_depth="advanced", max_results=3, include_answer=False)
-        except Exception:
-            continue
-        for item in response.get("results", []):
-            url = item.get("url", "")
-            if url:
-                results[url] = {"title": item.get("title", ""), "url": url, "content": item.get("content", "")[:1800]}
-    return list(results.values())[:12]
+    suffixes = ("LinkedIn", "X Twitter", "Instagram", "team CTO founder", "Tecnológico de Monterrey OR TecLeap")
+    queries = [f"{query} {suffix}" for suffix in suffixes]
+    hits = web_search_hits(queries, max_results=3)
+    return [
+        {"title": h["title"], "url": h["url"], "content": h["content"][:1800]}
+        for h in hits[:12]
+    ]
 
 
 @lru_cache(maxsize=256)

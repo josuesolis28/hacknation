@@ -131,6 +131,16 @@ type Dict = {
   revenueEmpty: string;
   clientsTitle: string;
   clientsEmpty: string;
+  phaseScanningHint: string;
+  phaseUx: string;
+  phaseUxHint: string;
+  phaseValidatingHint: string;
+  phaseCompleteHint: string;
+  viewCheck: string;
+  closeModal: string;
+  checkGrantedTitle: string;
+  pitchPanelEmpty: string;
+  pitchPanelEyebrow: string;
 };
 
 export const copy: Record<Language, Dict> = {
@@ -251,6 +261,16 @@ export const copy: Record<Language, Dict> = {
     revenueEmpty: "No public revenue signal",
     clientsTitle: "Clients & revenue signal",
     clientsEmpty: "No named clients found in public sources.",
+    phaseScanningHint: "Crawling public sources across the DACH ecosystem",
+    phaseUx: "Analyzing product & user experience",
+    phaseUxHint: "Reading pitch, UX signals and user-facing traction",
+    phaseValidatingHint: "Cross-checking founder and company signals",
+    phaseCompleteHint: "Decision engine finished scoring every profile",
+    viewCheck: "View approved check",
+    closeModal: "Close",
+    checkGrantedTitle: "Check issued",
+    pitchPanelEmpty: "Select a startup on the left to see its pitch.",
+    pitchPanelEyebrow: "PITCH",
   },
   es: {
     title: "Intake startups DACH",
@@ -369,6 +389,16 @@ export const copy: Record<Language, Dict> = {
     revenueEmpty: "Sin señal pública de revenue",
     clientsTitle: "Clientes y señal de revenue",
     clientsEmpty: "No se encontraron clientes nombrados en fuentes públicas.",
+    phaseScanningHint: "Rastreando fuentes públicas del ecosistema DACH",
+    phaseUx: "Analizando producto y experiencia de usuario",
+    phaseUxHint: "Leyendo pitch, señales de UX y tracción de usuarios",
+    phaseValidatingHint: "Cruzando señales de founders y de la empresa",
+    phaseCompleteHint: "El motor de decisión terminó de calificar cada perfil",
+    viewCheck: "Ver cheque aprobado",
+    closeModal: "Cerrar",
+    checkGrantedTitle: "Cheque emitido",
+    pitchPanelEmpty: "Selecciona una startup a la izquierda para ver su pitch.",
+    pitchPanelEyebrow: "PITCH",
   },
   de: {
     title: "DACH Startup Intake",
@@ -487,6 +517,16 @@ export const copy: Record<Language, Dict> = {
     revenueEmpty: "Kein öffentliches Umsatzsignal",
     clientsTitle: "Kunden & Umsatzsignal",
     clientsEmpty: "Keine namentlich genannten Kunden in öffentlichen Quellen gefunden.",
+    phaseScanningHint: "Öffentliche Quellen im DACH-Ökosystem werden durchsucht",
+    phaseUx: "Produkt- und Nutzererfahrung wird analysiert",
+    phaseUxHint: "Pitch, UX-Signale und Nutzer-Traktion werden gelesen",
+    phaseValidatingHint: "Founder- und Unternehmenssignale werden abgeglichen",
+    phaseCompleteHint: "Die Entscheidungs-Engine hat jedes Profil bewertet",
+    viewCheck: "Genehmigten Scheck ansehen",
+    closeModal: "Schließen",
+    checkGrantedTitle: "Scheck ausgestellt",
+    pitchPanelEmpty: "Wähle links ein Startup, um den Pitch zu sehen.",
+    pitchPanelEyebrow: "PITCH",
   },
 };
 

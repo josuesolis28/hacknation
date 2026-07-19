@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, asdict
 
 @dataclass
 class SearchHit:
-    """Un resultado limpio devuelto por Tavily."""
+    """Un resultado limpio devuelto por el Scout (búsqueda web vía OpenAI)."""
     title: str
     url: str
     content: str

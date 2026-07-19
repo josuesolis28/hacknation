@@ -7,7 +7,6 @@ export function StartupMetrics({ founder, language }: { founder: FounderProfile 
     return (
       <section className="startup-metrics empty">
         <div>
-          <span className="eyebrow">{text.fundInvite}</span>
           <h2>{text.metricsTitle}</h2>
           <p>{text.metricsEmpty}</p>
         </div>
@@ -26,7 +25,6 @@ export function StartupMetrics({ founder, language }: { founder: FounderProfile 
     <section className="startup-metrics">
       <div className="metrics-head">
         <div>
-          <span className="eyebrow">{text.fundInvite}</span>
           <h2>{founder.company}</h2>
           <p>
             {text.origin}: {founder.country || founder.country_code || "DACH"}

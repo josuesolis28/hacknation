@@ -38,12 +38,13 @@ def _stable_jwt_secret() -> str:
 @dataclass(frozen=True)
 class Settings:
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
-    tavily_api_key: str = field(default_factory=lambda: os.getenv("TAVILY_API_KEY", ""))
 
     llm_provider: str = field(default_factory=lambda: os.getenv("LLM_PROVIDER", "openai").lower())
     openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o"))
+    # Modelo usado para el Scout (búsqueda web vía la tool "web_search" de OpenAI).
+    openai_search_model: str = field(default_factory=lambda: os.getenv("OPENAI_SEARCH_MODEL", "gpt-4o"))
 
-    tavily_max_results: int = field(default_factory=lambda: int(os.getenv("TAVILY_MAX_RESULTS", "8")))
+    search_max_results: int = field(default_factory=lambda: int(os.getenv("SEARCH_MAX_RESULTS", "8")))
     admin_username: str = field(default_factory=lambda: os.getenv("VCBRAIN_ADMIN_USERNAME", "admin12345"))
     admin_password: str = field(default_factory=lambda: os.getenv("VCBRAIN_ADMIN_PASSWORD", "admin12345"))
     jwt_secret: str = field(default_factory=_stable_jwt_secret)
@@ -54,8 +55,6 @@ class Settings:
     def validate(self) -> list[str]:
         """Devuelve la lista de variables faltantes (vacía si todo está OK)."""
         missing = []
-        if not self.tavily_api_key:
-            missing.append("TAVILY_API_KEY")
         if not self.openai_api_key:
             missing.append("OPENAI_API_KEY")
         return missing

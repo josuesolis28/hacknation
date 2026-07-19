@@ -11,20 +11,66 @@ import {
   trafficLabel,
 } from "../i18n";
 
-export function FounderCard({
+function ApprovedCheckIcon() {
+  return (
+    <svg className="check-draw" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="22" cy="22" r="19" />
+      <path d="M13 22.5L19 28.5L31 15.5" />
+    </svg>
+  );
+}
+
+function CheckModal({ founder, language, onClose }: { founder: FounderProfile; language: Language; onClose: () => void }) {
+  const text = copy[language];
+  if (!founder.check) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="check-modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="check-modal-head">
+          <ApprovedCheckIcon />
+          <div>
+            <strong>{text.checkGrantedTitle}</strong>
+            <span>{text.instant}</span>
+          </div>
+          <button className="modal-close on-dark" onClick={onClose} aria-label={text.closeModal}>
+            ✕
+          </button>
+        </div>
+        <div className="check-modal-body">
+          <div className="line" style={{ animationDelay: ".2s" }}>
+            <span className="stamp">{text.issued}</span>
+          </div>
+          <div className="bank line" style={{ animationDelay: ".3s" }}>
+            <span className="name">{founder.check.issued_by}</span>
+            <span className="id">Nº {founder.check.check_id}</span>
+          </div>
+          <div className="amount">${founder.check.amount_usd.toLocaleString("en-US")} USD</div>
+          <p className="payto line" style={{ animationDelay: ".5s" }}>
+            <span>{text.payTo}</span> {founder.check.issued_to} · {founder.check.company}
+          </p>
+          <div className="foot line" style={{ animationDelay: ".6s" }}>
+            <span>
+              {text.issueDate} {founder.check.date}
+            </span>
+            <span>{text.instant}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StartupModal({
   founder,
   language,
-  selected,
-  onSelect,
-  onAnalyze,
+  onClose,
+  onOpenCheck,
 }: {
   founder: FounderProfile;
   language: Language;
-  selected: boolean;
-  onSelect: () => void;
-  onAnalyze: () => void;
+  onClose: () => void;
+  onOpenCheck: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [outreach, setOutreach] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [msgError, setMsgError] = useState<string | null>(null);
@@ -78,73 +124,63 @@ export function FounderCard({
   };
 
   return (
-    <div
-      className={`founder-card ${approved ? "approved" : ""} ${selected ? "selected" : ""}`}
-      onClick={onSelect}
-    >
-      <div
-        className="card-head"
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect();
-          setOpen(!open);
-        }}
-      >
-        <div className="score-badge">
-          <span className="num">{founder.founder_score}</span>
-          <span className="of">/ 100</span>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-panel-head">
+          <div className="score-badge">
+            <span className="num">{founder.founder_score}</span>
+            <span className="of">/ 100</span>
+          </div>
+          <div className="head-info">
+            <h3>{founder.company}</h3>
+            <p>
+              {founder.name}
+              {founder.role ? ` · ${founder.role}` : ""}
+              {email !== "—" ? ` · ${email}` : ""}
+            </p>
+            <span className={`traffic-light traffic-${light}`} title={lightDesc}>
+              <span className="traffic-dot" />
+              {lightLabel}
+            </span>
+            <span
+              className={`origin-badge ${founder.country_code || founder.origin_region || "unknown"}`}
+              title={`${text.origin}: ${origin} (${confidence})`}
+            >
+              {founder.country_code || origin} · {confidence}
+            </span>
+            {founder.section && <span className="section-badge">{founder.section}</span>}
+          </div>
+          <span className={`decision-pill ${founder.decision}`}>{approved ? text.approved : text.rejected}</span>
+          <button className="modal-close" onClick={onClose} aria-label={text.closeModal}>
+            ✕
+          </button>
         </div>
-        <span className={`traffic-light traffic-${light}`} title={lightDesc}>
-          <span className="traffic-dot" />
-          {lightLabel}
-        </span>
-        <div className="head-info">
-          <h3>{founder.company}</h3>
-          <p>
-            {founder.name}
-            {founder.role ? ` · ${founder.role}` : ""}
-            {email !== "—" ? ` · ${email}` : ""}
-          </p>
-          <span
-            className={`origin-badge ${founder.country_code || founder.origin_region || "unknown"}`}
-            title={`${text.origin}: ${origin} (${confidence})`}
-          >
-            {founder.country_code || origin} · {confidence}
-          </span>
-          {founder.section && <span className="section-badge">{founder.section}</span>}
+
+        <div className="profile-tiles">
+          <article className="profile-tile">
+            <span>{text.sectionLabel}</span>
+            <strong>{area}</strong>
+          </article>
+          <article className="profile-tile">
+            <span>{text.roundSize}</span>
+            <strong>{round}</strong>
+          </article>
+          <article className="profile-tile skills-tile">
+            <span>{text.businessEmail}</span>
+            <strong className="email-value">{email}</strong>
+            {skills.length > 0 && (
+              <div className="skill-chips" style={{ marginTop: 8 }}>
+                {skills.slice(0, 3).map((skill) => (
+                  <span className="skill-chip" key={skill}>
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            )}
+          </article>
         </div>
-        <span className={`decision-pill ${founder.decision}`}>
-          {approved ? text.approved : text.rejected}
-        </span>
-        <span className="chev">{open ? "▲" : "▼"}</span>
-      </div>
 
-      <div className="profile-tiles" onClick={(e) => e.stopPropagation()}>
-        <article className="profile-tile">
-          <span>{text.sectionLabel}</span>
-          <strong>{area}</strong>
-        </article>
-        <article className="profile-tile">
-          <span>{text.roundSize}</span>
-          <strong>{round}</strong>
-        </article>
-        <article className="profile-tile skills-tile">
-          <span>{text.businessEmail}</span>
-          <strong className="email-value">{email}</strong>
-          {skills.length > 0 && (
-            <div className="skill-chips" style={{ marginTop: 8 }}>
-              {skills.slice(0, 3).map((skill) => (
-                <span className="skill-chip" key={skill}>
-                  {skill}
-                </span>
-              ))}
-            </div>
-          )}
-        </article>
-      </div>
-
-      {open && (
-        <div className="card-body" onClick={(e) => e.stopPropagation()}>
+        <div className="card-body">
           <h4>{text.origin}</h4>
           <p className="just">
             {origin}
@@ -261,23 +297,9 @@ export function FounderCard({
           )}
 
           {approved && founder.check && (
-            <div className="check">
-              <span className="stamp">{text.issued}</span>
-              <div className="bank">
-                <span className="name">{founder.check.issued_by}</span>
-                <span className="id">Nº {founder.check.check_id}</span>
-              </div>
-              <div className="amount">${founder.check.amount_usd.toLocaleString("en-US")} USD</div>
-              <p className="payto">
-                <span>{text.payTo}</span> {founder.check.issued_to} · {founder.check.company}
-              </p>
-              <div className="foot">
-                <span>
-                  {text.issueDate} {founder.check.date}
-                </span>
-                <span>{text.instant}</span>
-              </div>
-            </div>
+            <button className="outreach-btn check-cta" onClick={onOpenCheck}>
+              <ApprovedCheckIcon /> {text.viewCheck}
+            </button>
           )}
 
           {!approved && founder.feedback.length > 0 && (
@@ -294,13 +316,94 @@ export function FounderCard({
           <button className="outreach-btn" onClick={onOutreach} disabled={loadingMsg}>
             {loadingMsg ? text.drafting : text.outreach}
           </button>
-          <button className="outreach-btn profile-action" onClick={onAnalyze}>
-            {text.analyzeNetwork}
-          </button>
           {msgError && <div className="status error">{msgError}</div>}
           {outreach && <div className="outreach-box">{outreach}</div>}
         </div>
-      )}
+      </div>
     </div>
+  );
+}
+
+export function FounderCard({
+  founder,
+  language,
+  selected,
+  onSelect,
+}: {
+  founder: FounderProfile;
+  language: Language;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [checkOpen, setCheckOpen] = useState(false);
+  const text = copy[language];
+  const approved = founder.decision === "approved";
+  const origin = originLabel(founder, language);
+  const confidence = confidenceLabel(founder.origin_confidence, language);
+  const light = founder.traffic_light || "red";
+  const lightLabel = trafficLabel(light, language);
+  const lightDesc = trafficDescription(light, language);
+  const email = founder.business_email || founder.contact_hint || "—";
+
+  const openModal = () => {
+    onSelect();
+    setModalOpen(true);
+  };
+
+  return (
+    <>
+      <div
+        className={`startup-tile ${approved ? "approved" : ""} ${selected ? "selected" : ""}`}
+        onClick={openModal}
+      >
+        {approved && founder.check && (
+          <button
+            className="approved-badge"
+            title={text.viewCheck}
+            aria-label={text.viewCheck}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+              setCheckOpen(true);
+            }}
+          >
+            <ApprovedCheckIcon />
+          </button>
+        )}
+        <div className="score-badge">
+          <span className="num">{founder.founder_score}</span>
+          <span className="of">/ 100</span>
+        </div>
+        <h3>{founder.company}</h3>
+        <p className="tile-sub">
+          {founder.name}
+          {founder.role ? ` · ${founder.role}` : ""}
+        </p>
+        <p className="tile-email">{email}</p>
+        <span className={`traffic-light traffic-${light}`} title={lightDesc}>
+          <span className="traffic-dot" />
+          {lightLabel}
+        </span>
+        <span
+          className={`origin-badge ${founder.country_code || founder.origin_region || "unknown"}`}
+          title={`${text.origin}: ${origin} (${confidence})`}
+        >
+          {founder.country_code || origin} · {confidence}
+        </span>
+        {founder.section && <span className="section-badge">{founder.section}</span>}
+        <span className={`decision-pill ${founder.decision}`}>{approved ? text.approved : text.rejected}</span>
+      </div>
+
+      {modalOpen && (
+        <StartupModal
+          founder={founder}
+          language={language}
+          onClose={() => setModalOpen(false)}
+          onOpenCheck={() => setCheckOpen(true)}
+        />
+      )}
+      {checkOpen && <CheckModal founder={founder} language={language} onClose={() => setCheckOpen(false)} />}
+    </>
   );
 }

@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
-import { analyzeProfiles, clearAccessToken, fetchHealth, hasAccessToken, runMaschmeyerScout } from "./api";
+import { clearAccessToken, fetchHealth, hasAccessToken, runMaschmeyerScout } from "./api";
+import { AnalysisPhases, Stage } from "./components/AnalysisPhases";
 import { FounderCard } from "./components/FounderCard";
 import { Login } from "./components/Login";
-import { ProfileNetworkView } from "./components/ProfileNetwork";
+import { PitchPanel } from "./components/PitchPanel";
 import { StartupMetrics } from "./components/StartupMetrics";
 import { Language, copy, loadLanguage, saveLanguage } from "./i18n";
-import type { FounderProfile, PipelineResult, ProfileNetwork } from "./types";
-
-type Stage = "initializing" | "detecting" | "validating" | "complete";
+import type { FounderProfile, PipelineResult } from "./types";
 
 function Workspace() {
   const [result, setResult] = useState<PipelineResult | null>(null);
@@ -15,9 +14,6 @@ function Workspace() {
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState<Language>(() => loadLanguage("en"));
   const [selected, setSelected] = useState<FounderProfile | null>(null);
-  const [network, setNetwork] = useState<ProfileNetwork | null>(null);
-  const [networkLoading, setNetworkLoading] = useState(false);
-  const [networkError, setNetworkError] = useState<string | null>(null);
   const text = copy[language];
 
   useEffect(() => {
@@ -40,7 +36,8 @@ function Workspace() {
   useEffect(() => {
     const run = async () => {
       setStage("detecting");
-      const timer = window.setTimeout(() => setStage("validating"), 850);
+      const timer1 = window.setTimeout(() => setStage("analyzing_ux"), 750);
+      const timer2 = window.setTimeout(() => setStage("validating"), 1600);
       try {
         const pipeline = await runMaschmeyerScout();
         setResult(pipeline);
@@ -49,28 +46,21 @@ function Workspace() {
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
-        window.clearTimeout(timer);
+        window.clearTimeout(timer1);
+        window.clearTimeout(timer2);
       }
     };
     void run();
   }, []);
 
-  const inspect = async (founder: FounderProfile) => {
-    setSelected(founder);
-    setNetworkLoading(true);
-    setNetworkError(null);
-    setNetwork(null);
-    try {
-      setNetwork(await analyzeProfiles(founder));
-    } catch (e) {
-      setNetworkError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setNetworkLoading(false);
-    }
-  };
-
   const statusLabel =
-    stage === "complete" ? text.complete : stage === "validating" ? text.validatingSignals : text.scanning;
+    stage === "complete"
+      ? text.complete
+      : stage === "validating"
+        ? text.validatingSignals
+        : stage === "analyzing_ux"
+          ? text.phaseUx
+          : text.scanning;
   const total = result?.raw_hits.length ?? 0;
   const candidates = result?.founders.length ?? 0;
   const approved = result?.founders.filter((f) => f.decision === "approved").length ?? 0;
@@ -111,6 +101,8 @@ function Workspace() {
           </p>
         </div>
       </section>
+
+      <AnalysisPhases stage={stage} language={language} />
 
       <section className="metrics">
         <article>
@@ -158,24 +150,19 @@ function Workspace() {
               <span className="spinner" /> {text.analyzing}
             </div>
           )}
-          {result?.founders.map((founder) => (
-            <FounderCard
-              key={`${founder.name}-${founder.company}`}
-              founder={founder}
-              language={language}
-              selected={selected?.name === founder.name && selected?.company === founder.company}
-              onSelect={() => setSelected(founder)}
-              onAnalyze={() => void inspect(founder)}
-            />
-          ))}
+          <div className="startup-grid">
+            {result?.founders.map((founder) => (
+              <FounderCard
+                key={`${founder.name}-${founder.company}`}
+                founder={founder}
+                language={language}
+                selected={selected?.name === founder.name && selected?.company === founder.company}
+                onSelect={() => setSelected(founder)}
+              />
+            ))}
+          </div>
         </section>
-        <ProfileNetworkView
-          founder={selected}
-          network={network}
-          loading={networkLoading}
-          error={networkError}
-          language={language}
-        />
+        <PitchPanel founder={selected} language={language} />
       </div>
 
       <StartupMetrics founder={selected} language={language} />

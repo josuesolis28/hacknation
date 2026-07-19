@@ -1,4 +1,4 @@
-import type { FounderProfile, PipelineResult, ProfileNetwork } from "./types";
+import type { FounderProfile, PipelineResult } from "./types";
 
 let accessToken = sessionStorage.getItem("vcbrain_token") ?? "";
 
@@ -75,14 +75,6 @@ export function login(username: string, password: string): Promise<{ access_toke
     headers: headers(),
     body: JSON.stringify({ username, password }),
   }).then((r) => handle<{ access_token: string }>(r));
-}
-
-export function analyzeProfiles(founder: FounderProfile): Promise<ProfileNetwork> {
-  return fetch("/api/profiles/analyze", {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({ name: founder.name, company: founder.company, role: founder.role }),
-  }).then((r) => handle<ProfileNetwork>(r));
 }
 
 export function translateText(text: string, language: "es" | "en" | "de"): Promise<{ text: string }> {
