@@ -23,6 +23,21 @@ from openai import OpenAI
 
 from .config import settings
 
+
+def _full_error(exc: BaseException) -> str:
+    """openai-python envuelve CUALQUIER excepción de httpx en un genérico
+    APIConnectionError("Connection error.") — sin esto no se ve la causa
+    real (ConnectError, ReadTimeout, SSLError, LocalProtocolError, etc).
+    Camina la cadena __cause__/__context__ para exponerla."""
+    parts = []
+    seen = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        parts.append(f"{type(current).__name__}: {current}")
+        current = current.__cause__ or current.__context__
+    return " <- ".join(parts)
+
 _http_client = httpx.Client(
     transport=httpx.HTTPTransport(local_address="0.0.0.0"),
     timeout=httpx.Timeout(600.0, connect=10.0),
@@ -49,7 +64,7 @@ def diagnose_openai_connectivity() -> dict:
         result["resolved_ips"] = sorted({info[4][0] for info in infos})
     except Exception as exc:
         result["dns_ok"] = False
-        result["dns_error"] = f"{type(exc).__name__}: {exc}"
+        result["dns_error"] = _full_error(exc)
 
     try:
         t0 = time.monotonic()
@@ -60,7 +75,7 @@ def diagnose_openai_connectivity() -> dict:
         result["https_ipv4_ms"] = round((time.monotonic() - t0) * 1000, 1)
     except Exception as exc:
         result["https_ipv4_ok"] = False
-        result["https_ipv4_error"] = f"{type(exc).__name__}: {exc}"
+        result["https_ipv4_error"] = _full_error(exc)
 
     try:
         t0 = time.monotonic()
@@ -71,24 +86,52 @@ def diagnose_openai_connectivity() -> dict:
         result["https_default_ms"] = round((time.monotonic() - t0) * 1000, 1)
     except Exception as exc:
         result["https_default_ok"] = False
-        result["https_default_error"] = f"{type(exc).__name__}: {exc}"
+        result["https_default_error"] = _full_error(exc)
 
     return result
 
 
 def diagnose_openai_live_call() -> dict:
-    """Prueba dos llamadas REALES y autenticadas contra OpenAI (gastan unos
+    """Prueba llamadas REALES y autenticadas contra OpenAI (gastan unos
     centavos de USD, por eso NO corren automáticamente al arrancar):
 
-    1. Un chat completion trivial y rápido — confirma que la autenticación
-       y una request/response POST normal funcionan.
+    0. Un POST crudo con httpx puro (SIN pasar por el SDK de OpenAI) —
+       aísla si el problema es del SDK/su wrapper de errores o del
+       transporte/red en sí para requests POST con body+auth.
+    1. Un chat completion trivial y rápido vía el SDK.
     2. Una llamada real con el tool "web_search" (la misma que usa el
        Scout) — mucho más lenta porque el modelo navega la web antes de
-       responder. Si (1) funciona pero (2) falla, el problema no es de red
-       ni de auth: es que la conexión se corta antes de que el tool
-       web_search termine (p. ej. un límite de duración en la salida de
-       Railway), no un problema de DNS/TLS/API key."""
+       responder.
+
+    Cada error se reporta con la cadena completa de causas (no solo el
+    genérico "Connection error." que expone el SDK)."""
     result: dict = {}
+
+    try:
+        t0 = time.monotonic()
+        with httpx.Client(
+            timeout=httpx.Timeout(30.0, connect=10.0),
+            transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+        ) as c:
+            r = c.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "gpt-4o-mini",
+                    "max_tokens": 5,
+                    "messages": [{"role": "user", "content": "hi"}],
+                },
+            )
+        result["raw_post_ok"] = True
+        result["raw_post_status"] = r.status_code
+        result["raw_post_ms"] = round((time.monotonic() - t0) * 1000, 1)
+    except Exception as exc:
+        result["raw_post_ok"] = False
+        result["raw_post_error"] = _full_error(exc)
+
     client = get_openai_client()
 
     try:
@@ -102,7 +145,7 @@ def diagnose_openai_live_call() -> dict:
         result["chat_completion_ms"] = round((time.monotonic() - t0) * 1000, 1)
     except Exception as exc:
         result["chat_completion_ok"] = False
-        result["chat_completion_error"] = f"{type(exc).__name__}: {exc}"
+        result["chat_completion_error"] = _full_error(exc)
 
     try:
         t0 = time.monotonic()
@@ -115,6 +158,6 @@ def diagnose_openai_live_call() -> dict:
         result["web_search_ms"] = round((time.monotonic() - t0) * 1000, 1)
     except Exception as exc:
         result["web_search_ok"] = False
-        result["web_search_error"] = f"{type(exc).__name__}: {exc}"
+        result["web_search_error"] = _full_error(exc)
 
     return result
