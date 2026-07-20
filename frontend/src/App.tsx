@@ -141,7 +141,22 @@ function InvestorWorkspace({ language, setLanguage, onSwitchRole }: {
     const timer2 = window.setTimeout(() => setStage("validating"), 1600);
     try {
       const pipeline = await runMaschmeyerScout();
-      setResult(pipeline);
+      setResult((prev) => {
+        if (!prev) return pipeline;
+        // Un rescan no debe borrar lo que ya se había encontrado y aún no
+        // se evaluó (p. ej. tarjetas amarillas pendientes de revisar) —
+        // se acumulan los founders nuevos sobre los previos, en vez de
+        // reemplazar la lista completa.
+        const merged = new Map(prev.founders.map((f) => [decisionKey(f.company, f.name), f]));
+        for (const founder of pipeline.founders) {
+          merged.set(decisionKey(founder.company, founder.name), founder);
+        }
+        return {
+          ...pipeline,
+          founders: Array.from(merged.values()),
+          raw_hits: [...prev.raw_hits, ...pipeline.raw_hits],
+        };
+      });
       setSelected(pipeline.founders[0] ?? null);
       setStage("complete");
     } catch (e) {
