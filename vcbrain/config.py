@@ -58,7 +58,12 @@ def _stable_jwt_secret() -> str:
 
 @dataclass(frozen=True)
 class Settings:
-    openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
+    # .strip(): una variable de entorno pegada con un salto de línea al
+    # final (frecuente al copiar/pegar en el dashboard de Railway) rompe el
+    # header "Authorization: Bearer ..." con un LocalProtocolError que el
+    # SDK de OpenAI disfraza como un genérico e indescifrable "Connection
+    # error." — mejor curarlo acá que perseguir un fantasma de red.
+    openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", "").strip())
 
     llm_provider: str = field(default_factory=lambda: os.getenv("LLM_PROVIDER", "openai").lower())
     openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o"))

@@ -1,18 +1,14 @@
 """Cliente OpenAI compartido + diagnóstico de conectividad de red.
 
-En Railway, api.openai.com también resuelve por IPv6, y la salida IPv6 del
-contenedor puede estar rota o inestable — resultando en que TODAS las
-llamadas fallen con "Connection error" aunque en local funcione sin
-problema. Se fuerza el socket local a bindear IPv4 para evitar esa ruta.
-
-IMPORTANTE: al pasarle a OpenAI() un http_client propio, el SDK deja de
-aplicar su timeout generoso por defecto (600s) y usa el default "pelado"
-de httpx (5s para todo). Localmente las respuestas tardaban 1.7-3.7s así
-que pasaban por debajo de ese límite por poco margen, pero en Railway
-cualquier llamada que requiera que el modelo genere texto (chat, y sobre
-todo web_search) se corta a los 5s y sale como "Connection error" — hay
-que fijar explícitamente un timeout igual de generoso al que trae OpenAI
-por defecto.
+Causa raíz real del "Connection error" en Railway (encontrada con
+diagnose_openai_live_call): OPENAI_API_KEY tenía un salto de línea (\n)
+pegado al final en las variables de entorno de Railway. httpx rechaza
+construir el header "Authorization: Bearer ...\n" (LocalProtocolError:
+Illegal header value), y openai-python disfraza CUALQUIER excepción de
+httpx como un genérico "Connection error." — de ahí que pareciera un
+problema de red/DNS/IPv6 cuando en realidad era la propia API key. El fix
+real es el .strip() sobre OPENAI_API_KEY en config.py; esto no era ni
+IPv4/IPv6 ni timeout (ambas cosas se probaron y no lo eran).
 """
 
 import socket
@@ -38,14 +34,9 @@ def _full_error(exc: BaseException) -> str:
         current = current.__cause__ or current.__context__
     return " <- ".join(parts)
 
-_http_client = httpx.Client(
-    transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-    timeout=httpx.Timeout(600.0, connect=10.0),
-)
-
 
 def get_openai_client() -> OpenAI:
-    return OpenAI(api_key=settings.openai_api_key, http_client=_http_client)
+    return OpenAI(api_key=settings.openai_api_key)
 
 
 def diagnose_openai_connectivity() -> dict:
