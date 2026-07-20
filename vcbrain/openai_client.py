@@ -4,6 +4,15 @@ En Railway, api.openai.com también resuelve por IPv6, y la salida IPv6 del
 contenedor puede estar rota o inestable — resultando en que TODAS las
 llamadas fallen con "Connection error" aunque en local funcione sin
 problema. Se fuerza el socket local a bindear IPv4 para evitar esa ruta.
+
+IMPORTANTE: al pasarle a OpenAI() un http_client propio, el SDK deja de
+aplicar su timeout generoso por defecto (600s) y usa el default "pelado"
+de httpx (5s para todo). Localmente las respuestas tardaban 1.7-3.7s así
+que pasaban por debajo de ese límite por poco margen, pero en Railway
+cualquier llamada que requiera que el modelo genere texto (chat, y sobre
+todo web_search) se corta a los 5s y sale como "Connection error" — hay
+que fijar explícitamente un timeout igual de generoso al que trae OpenAI
+por defecto.
 """
 
 import socket
@@ -14,7 +23,10 @@ from openai import OpenAI
 
 from .config import settings
 
-_http_client = httpx.Client(transport=httpx.HTTPTransport(local_address="0.0.0.0"))
+_http_client = httpx.Client(
+    transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+    timeout=httpx.Timeout(600.0, connect=10.0),
+)
 
 
 def get_openai_client() -> OpenAI:
