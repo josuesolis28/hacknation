@@ -62,3 +62,47 @@ def diagnose_openai_connectivity() -> dict:
         result["https_default_error"] = f"{type(exc).__name__}: {exc}"
 
     return result
+
+
+def diagnose_openai_live_call() -> dict:
+    """Prueba dos llamadas REALES y autenticadas contra OpenAI (gastan unos
+    centavos de USD, por eso NO corren automáticamente al arrancar):
+
+    1. Un chat completion trivial y rápido — confirma que la autenticación
+       y una request/response POST normal funcionan.
+    2. Una llamada real con el tool "web_search" (la misma que usa el
+       Scout) — mucho más lenta porque el modelo navega la web antes de
+       responder. Si (1) funciona pero (2) falla, el problema no es de red
+       ni de auth: es que la conexión se corta antes de que el tool
+       web_search termine (p. ej. un límite de duración en la salida de
+       Railway), no un problema de DNS/TLS/API key."""
+    result: dict = {}
+    client = get_openai_client()
+
+    try:
+        t0 = time.monotonic()
+        client.chat.completions.create(
+            model="gpt-4o-mini",
+            max_completion_tokens=5,
+            messages=[{"role": "user", "content": "hi"}],
+        )
+        result["chat_completion_ok"] = True
+        result["chat_completion_ms"] = round((time.monotonic() - t0) * 1000, 1)
+    except Exception as exc:
+        result["chat_completion_ok"] = False
+        result["chat_completion_error"] = f"{type(exc).__name__}: {exc}"
+
+    try:
+        t0 = time.monotonic()
+        client.responses.create(
+            model=settings.openai_search_model,
+            tools=[{"type": "web_search"}],
+            input="Busca 1 fuente pública reciente sobre 'OpenAI'. Responde en una frase.",
+        )
+        result["web_search_ok"] = True
+        result["web_search_ms"] = round((time.monotonic() - t0) * 1000, 1)
+    except Exception as exc:
+        result["web_search_ok"] = False
+        result["web_search_error"] = f"{type(exc).__name__}: {exc}"
+
+    return result

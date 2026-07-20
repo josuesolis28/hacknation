@@ -17,7 +17,7 @@ from vcbrain.auth import current_user, issue_token, request_client_id, verify_cr
 from vcbrain import db
 from vcbrain.license_gate import verify_license
 from vcbrain.models import FounderProfile
-from vcbrain.openai_client import diagnose_openai_connectivity
+from vcbrain.openai_client import diagnose_openai_connectivity, diagnose_openai_live_call
 from vcbrain.pipeline import refresh_decisions, run_maschmeyer_pipeline, run_pipeline
 from vcbrain.profiles import analyze_public_profiles
 from vcbrain.submissions import submit_startup
@@ -112,6 +112,16 @@ def health_network():
     default) — no gasta en llamadas reales de la API, solo prueba la
     conexión. Útil para aislar en qué capa falla exactamente en Railway."""
     return diagnose_openai_connectivity()
+
+
+@app.get("/api/health/network-live")
+def health_network_live(_: str = Depends(current_user)):
+    """Como /api/health/network, pero con llamadas REALES autenticadas
+    (gasta unos centavos de USD) — requiere login porque cuesta dinero.
+    Compara un chat completion trivial contra una llamada real de
+    web_search para aislar si el problema es la conexión en general o
+    específicamente el tool de búsqueda web (que tarda mucho más)."""
+    return diagnose_openai_live_call()
 
 
 @app.get("/api/meta")
