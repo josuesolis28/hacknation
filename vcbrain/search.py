@@ -9,11 +9,10 @@ al mismo contrato SearchHit que consume el Judge.
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-from openai import OpenAI
-
 from .config import settings
 from .cost import CostTracker
 from .models import SearchHit
+from .openai_client import get_openai_client
 from .thesis import maschmeyer_queries
 
 logger = logging.getLogger(__name__)
@@ -83,7 +82,7 @@ def web_search_hits(
     vez de seguir gastando. Por la concurrencia, el corte no es exacto (se
     puede pasar por el costo de ~`search_concurrency` llamadas ya en vuelo).
     """
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = get_openai_client()
     limit = max_results or settings.search_max_results
 
     def _run(query: str) -> list[dict]:

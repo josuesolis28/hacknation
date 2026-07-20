@@ -442,6 +442,7 @@ export default function App() {
     return (
       <RoleChooser
         language={language}
+        setLanguage={setLanguage}
         onChoose={(r) => {
           saveRole(r);
           setRole(r);
@@ -454,6 +455,8 @@ export default function App() {
     return (
       <Login
         presetRole={role}
+        language={language}
+        setLanguage={setLanguage}
         onBack={() => {
           clearRole();
           setRole(null);

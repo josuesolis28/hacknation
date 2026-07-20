@@ -25,9 +25,9 @@ def _complete_openai(
     budget: CostTracker | None = None,
     label: str = "llm",
 ) -> str:
-    from openai import OpenAI
+    from .openai_client import get_openai_client
 
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = get_openai_client()
     used_model = model or settings.openai_model
     response = client.chat.completions.create(
         model=used_model,

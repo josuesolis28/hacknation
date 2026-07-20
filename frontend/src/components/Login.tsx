@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { getAuthConfig, login, loginWithGoogle, register, setAccessToken } from "../api";
-import { Language, copy, loadLanguage, saveLanguage } from "../i18n";
+import { Language, copy } from "../i18n";
 import type { Role } from "../role";
 
 declare global {
@@ -42,14 +42,17 @@ function loadGsiScript(): Promise<void> {
 
 export function Login({
   presetRole,
+  language,
+  setLanguage,
   onBack,
   onSuccess,
 }: {
   presetRole: Role;
+  language: Language;
+  setLanguage: (l: Language) => void;
   onBack: () => void;
   onSuccess: (role: Role | null) => void;
 }) {
-  const [language, setLanguage] = useState<Language>(() => loadLanguage("en"));
   const [mode, setMode] = useState<"login" | "register">("login");
   const isStartup = presetRole === "startup";
   const [username, setUsername] = useState(isStartup ? "startup1" : "admin12345");
@@ -63,10 +66,6 @@ export function Login({
   const [googleClientId, setGoogleClientId] = useState("");
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const text = copy[language];
-
-  useEffect(() => {
-    saveLanguage(language);
-  }, [language]);
 
   useEffect(() => {
     void getAuthConfig()

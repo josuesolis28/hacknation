@@ -3,6 +3,7 @@
 import os
 import secrets
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -13,25 +14,45 @@ _ROOT = Path(__file__).resolve().parent.parent
 _JWT_SECRET_FILE = _ROOT / ".vcbrain_jwt_secret"
 
 
+def _log_jwt_secret_startup(origin: str) -> None:
+    """Imprime cuándo arrancó el server y de dónde salió el secreto JWT
+    vigente en esta instancia — así en los logs de Railway queda claro el
+    momento exacto en el que las sesiones anteriores dejan de servir
+    (cada vez que se genera uno NUEVO, todos los tokens ya emitidos quedan
+    inválidos)."""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[vcbrain] Arranque del server: {now} — secreto JWT: {origin}")
+
+
 def _stable_jwt_secret() -> str:
     """Evita invalidar sesiones en cada reload de uvicorn.
 
     Si falta ``VCBRAIN_JWT_SECRET``, se reutiliza un secreto local persistente
     (archivo gitignored). Antes se regeneraba en cada arranque y el frontend
     recibía «Token inválido o expirado» con un JWT aún vigente en el navegador.
+
+    Nota para producción (Railway y similares): el filesystem del contenedor
+    NO es persistente entre deploys/reinicios, así que el archivo local no
+    sobrevive ahí — para que las sesiones no se invaliden en cada deploy hay
+    que fijar ``VCBRAIN_JWT_SECRET`` como variable de entorno real en la
+    plataforma, no depender del archivo.
     """
     env = os.getenv("VCBRAIN_JWT_SECRET", "").strip()
     if env and env not in {"replace-with-a-long-random-secret", "changeme"}:
+        _log_jwt_secret_startup("tomado de VCBRAIN_JWT_SECRET (env)")
         return env
     try:
         if _JWT_SECRET_FILE.exists():
             stored = _JWT_SECRET_FILE.read_text(encoding="utf-8").strip()
             if stored:
+                _log_jwt_secret_startup("reutilizado del archivo local .vcbrain_jwt_secret")
                 return stored
         secret = secrets.token_urlsafe(48)
         _JWT_SECRET_FILE.write_text(secret, encoding="utf-8")
+        _log_jwt_secret_startup("NUEVO — generado y guardado en .vcbrain_jwt_secret (sesiones previas quedan inválidas)")
         return secret
     except OSError:
+        _log_jwt_secret_startup("NUEVO — generado en memoria, no se pudo persistir (sesiones previas quedan inválidas)")
         return secrets.token_urlsafe(48)
 
 

@@ -9,6 +9,8 @@
 .role-card { width: min(560px, 100%); background: #fff; border: 1px solid #dfe8ed; box-shadow: 0 20px 55px #19364a18; border-radius: 20px; padding: 40px; text-align: center; }
 .role-card h1 { margin: 8px 0 6px; font-size: 28px; letter-spacing: -.5px; }
 .role-card > p { margin: 0 0 24px; color: #617080; }
+.role-lang { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+.role-lang select { background: white; border: 1px solid #d5e1e6; padding: 7px 10px; border-radius: 8px; color: #3c5667; }
 .role-options { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .role-option { text-align: left; background: #f7fafb; border: 1px solid #dfe8ed; border-radius: 14px; padding: 20px; cursor: pointer; transition: border-color .15s, background .15s; }
 .role-option:hover { border-color: #0c6b76; background: #eef7f6; }
