@@ -81,7 +81,20 @@ def web_search_hits(
     queries restantes se saltan sin llamar a la API — la corrida se acota en
     vez de seguir gastando. Por la concurrencia, el corte no es exacto (se
     puede pasar por el costo de ~`search_concurrency` llamadas ya en vuelo).
+
+    Rate limit duro (``MAX_QUERIES_PER_RUN``): sin importar cuántas queries
+    genere el llamador, nunca se disparan más de ese número en una sola
+    corrida — protección adicional al presupuesto en USD para no consumir
+    tokens de más si alguien agranda la lista de queries más adelante.
     """
+    if len(queries) > settings.max_queries_per_run:
+        logger.warning(
+            "Rate limit: se recortan %d queries a %d (MAX_QUERIES_PER_RUN)",
+            len(queries),
+            settings.max_queries_per_run,
+        )
+        queries = queries[: settings.max_queries_per_run]
+
     client = get_openai_client()
     limit = max_results or settings.search_max_results
 

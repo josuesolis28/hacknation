@@ -77,23 +77,19 @@ COMMUNITY_SOURCES = (
 
 
 def maschmeyer_queries() -> list[str]:
-    """Dos consultas por sección (cubren los 3 países DACH en el mismo texto)
-    en vez de una por sección×país: cada llamada al tool "web_search" de
-    OpenAI es cara (tokens de contexto + tarifa por llamada), así que se
-    evita triplicar el número de queries sin perder cobertura de la tesis."""
+    """Una sola consulta por sección (cubre los 3 países DACH, las fuentes de
+    descubrimiento y las comunidades en el mismo texto) — antes eran dos
+    queries por sección, el doble de llamadas al tool "web_search" de
+    OpenAI (que es caro: tarifa por llamada + tokens de contexto). Con esto
+    una corrida completa dispara como máximo 1 query × sección, nunca más."""
     source_terms = " OR ".join(f'"{source}"' for source in DISCOVERY_SOURCES)
     community_terms = " OR ".join(f'"{source}"' for source in COMMUNITY_SOURCES)
     queries = []
     for section in MVP_SECTIONS:
         queries.append(
             f'"{section}" startup OR founder (Germany OR Switzerland OR Austria OR DACH) '
-            f'(raising OR fundraising OR "seed round" OR "Series A" OR pitch) '
-            f'({source_terms})'
-        )
-        queries.append(
-            f'"{section}" startup founder DACH OR "Germany" OR Switzerland OR Austria '
-            f'email OR contact OR raising OR pitch '
-            f'(LinkedIn OR Instagram OR website OR {community_terms})'
+            f'(raising OR fundraising OR "seed round" OR "Series A" OR pitch OR email OR contact) '
+            f'({source_terms} OR LinkedIn OR Instagram OR website OR {community_terms})'
         )
     return queries
 

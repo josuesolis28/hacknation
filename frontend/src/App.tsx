@@ -210,7 +210,7 @@ function InvestorWorkspace({ language, setLanguage, onSwitchRole }: {
             <option value="es">ES</option>
             <option value="de">DE</option>
           </select>
-          <button className="ghost" onClick={() => void rescan()} disabled={stage !== "complete"}>
+          <button className="scan-btn" onClick={() => void rescan()} disabled={stage !== "complete"}>
             {text.rescan}
           </button>
           <button className="ghost" onClick={() => setShowInvites(true)}>

@@ -80,6 +80,12 @@ class Settings:
     # Tope de costo estimado (USD) por corrida de búsqueda (Scout + Judge).
     # Al acercarse al límite se dejan de lanzar nuevas queries de búsqueda.
     max_search_cost_usd: float = field(default_factory=lambda: float(os.getenv("MAX_SEARCH_COST_USD", "2.0")))
+    # Rate limit duro: máximo de queries que se disparan en UNA sola corrida
+    # del Scout, sin importar cuántas genere la tesis (1 por sección como
+    # tope natural — 11 secciones en MVP_SECTIONS). Es un cinturón de
+    # seguridad adicional al presupuesto en USD: si alguien agrega más
+    # queries por sección más adelante, esto sigue acotando el gasto.
+    max_queries_per_run: int = field(default_factory=lambda: int(os.getenv("MAX_QUERIES_PER_RUN", "11")))
 
     # Secreto de licencia: sin el valor correcto, el backend no arranca.
     # Ver vcbrain/license_gate.py — el hash esperado vive en el código, el
