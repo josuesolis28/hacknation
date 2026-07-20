@@ -17,6 +17,7 @@ from vcbrain.auth import current_user, issue_token, request_client_id, verify_cr
 from vcbrain import db
 from vcbrain.license_gate import verify_license
 from vcbrain.models import FounderProfile
+from vcbrain.openai_client import diagnose_openai_connectivity
 from vcbrain.pipeline import refresh_decisions, run_maschmeyer_pipeline, run_pipeline
 from vcbrain.profiles import analyze_public_profiles
 from vcbrain.submissions import submit_startup
@@ -37,6 +38,7 @@ app.add_middleware(
 def _startup() -> None:
     verify_license()
     db.init_db()
+    print(f"[vcbrain] Diagnóstico de red hacia OpenAI: {diagnose_openai_connectivity()}")
 
 
 class ScoutRequest(BaseModel):
@@ -101,6 +103,15 @@ def health():
         "default_language": language,
         "languages": list(LANGUAGES.keys()),
     }
+
+
+@app.get("/api/health/network")
+def health_network():
+    """Diagnóstico en vivo de la conectividad de este servidor hacia
+    api.openai.com (DNS, HTTPS por IPv4 forzado, HTTPS por resolución
+    default) — no gasta en llamadas reales de la API, solo prueba la
+    conexión. Útil para aislar en qué capa falla exactamente en Railway."""
+    return diagnose_openai_connectivity()
 
 
 @app.get("/api/meta")
