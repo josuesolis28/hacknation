@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Check, FounderProfile } from "../types";
-import { DecisionState, TicketStatus, generateOutreach } from "../api";
+import { DecisionState, TicketStatus, generateOutreach, rejectTicket } from "../api";
 import { useTranslatedFounder } from "../hooks/useTranslatedFounder";
 import {
   Language,
@@ -38,8 +38,23 @@ function buildManualCheck(founder: FounderProfile): Check {
 
 function CheckModal({ check, language, onClose }: { check: Check; language: Language; onClose: () => void }) {
   const text = copy[language];
+  const [closing, setClosing] = useState(false);
+
+  // Se aprueba, se muestra el cheque un momento, y se cierra solo — no hace
+  // falta cerrarlo a mano para seguir avanzando.
+  useEffect(() => {
+    const showTimer = window.setTimeout(() => setClosing(true), 2200);
+    return () => window.clearTimeout(showTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!closing) return;
+    const closeTimer = window.setTimeout(onClose, 280);
+    return () => window.clearTimeout(closeTimer);
+  }, [closing, onClose]);
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className={`modal-overlay ${closing ? "closing" : ""}`} onClick={onClose}>
       <div className="check-modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="check-modal-head">
           <ApprovedCheckIcon />
@@ -413,7 +428,7 @@ function StartupModal({
             </button>
           ) : (
             <>
-              <button className="outreach-btn" onClick={onDiscard}>
+              <button className="outreach-btn danger-btn" onClick={onDiscard}>
                 {text.discardFeedback}
               </button>
               {light === "yellow" && (
@@ -438,6 +453,7 @@ export function FounderCard({
   onDecisionChange,
   ticketStatus,
   onTicketChange,
+  onReject,
 }: {
   founder: FounderProfile;
   language: Language;
@@ -447,6 +463,7 @@ export function FounderCard({
   onDecisionChange?: (company: string, name: string, state: DecisionState) => void;
   ticketStatus?: TicketStatus;
   onTicketChange?: (company: string, name: string, status: TicketStatus) => void;
+  onReject?: (founder: FounderProfile) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
@@ -484,6 +501,11 @@ export function FounderCard({
   const openCheck = () => {
     if (!activeCheck) setManualCheck(buildManualCheck(founder));
     setCheckOpen(true);
+    // Aprobar y generar el cheque es una sola acción: en cuanto se genera,
+    // se archiva directo como ticket aprobado y se cierra el modal principal
+    // — no hace falta un paso manual aparte para volver a la grilla.
+    setModalOpen(false);
+    onTicketChange?.(founder.company, founder.name, "approved");
   };
 
   const forceApprove = () => {
@@ -499,8 +521,11 @@ export function FounderCard({
       onTicketChange?.(founder.company, founder.name, "clear");
       return;
     }
-    const status: TicketStatus = isApproved ? "approved" : light === "yellow" ? "follow_up" : "rejected";
-    onTicketChange?.(founder.company, founder.name, status);
+    if (isApproved) {
+      onTicketChange?.(founder.company, founder.name, "approved");
+    } else {
+      onReject?.(founder);
+    }
   };
 
   return (
@@ -572,11 +597,17 @@ export function FounderCard({
           onDiscard={() => {
             setDiscarded(true);
             setModalOpen(false);
+            // Descartar y rechazar son la misma acción — se enruta por
+            // onReject para que se genere automáticamente la nota de
+            // feedback personalizada (en el idioma del perfil) y quede
+            // adjunta al ticket rechazado.
             onDecisionChange?.(founder.company, founder.name, "discarded");
+            onReject?.(founder);
           }}
           onUndoDiscard={() => {
             setDiscarded(false);
             onDecisionChange?.(founder.company, founder.name, "clear");
+            onTicketChange?.(founder.company, founder.name, "clear");
           }}
         />
       )}

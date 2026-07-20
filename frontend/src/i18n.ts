@@ -160,13 +160,11 @@ type Dict = {
   ticketsEyebrow: string;
   ticketsTitle: string;
   ticketsApproved: string;
-  ticketsFollowUp: string;
-  ticketsCompleted: string;
   ticketsRejected: string;
   ticketsEmpty: string;
-  markCompleted: string;
-  markRejected: string;
   removeFromTickets: string;
+  rejectionSentTitle: string;
+  rejectionSentClose: string;
   archiveEyebrow: string;
   archiveTitle: string;
   archiveLoading: string;
@@ -218,6 +216,27 @@ type Dict = {
   switchRole: string;
   tabScan: string;
   tabSubmissionsReceived: string;
+  loginModeLogin: string;
+  loginModeRegister: string;
+  registerHint: string;
+  registerCode: string;
+  registerName: string;
+  registerEmail: string;
+  registerPassword: string;
+  registerButton: string;
+  invitesBtn: string;
+  invitesTitle: string;
+  invitesGenerate: string;
+  invitesRole: string;
+  invitesNote: string;
+  invitesNotePlaceholder: string;
+  invitesCreateBtn: string;
+  invitesCopy: string;
+  invitesCopied: string;
+  invitesListTitle: string;
+  invitesEmpty: string;
+  invitesUsedBy: string;
+  invitesUnused: string;
 };
 
 export const copy: Record<Language, Dict> = {
@@ -367,13 +386,11 @@ export const copy: Record<Language, Dict> = {
     ticketsEyebrow: "PIPELINE",
     ticketsTitle: "Tickets",
     ticketsApproved: "Approved",
-    ticketsFollowUp: "Follow-up",
-    ticketsCompleted: "Completed",
     ticketsRejected: "Rejected",
     ticketsEmpty: "No tickets here yet.",
-    markCompleted: "Mark completed",
-    markRejected: "Reject",
     removeFromTickets: "Remove from tickets",
+    rejectionSentTitle: "Rejection feedback generated and sent",
+    rejectionSentClose: "Dismiss",
     archiveEyebrow: "ARCHIVE",
     archiveTitle: "Already analyzed",
     archiveLoading: "Loading archive…",
@@ -425,6 +442,27 @@ export const copy: Record<Language, Dict> = {
     switchRole: "Switch role",
     tabScan: "Scan",
     tabSubmissionsReceived: "Submissions received",
+    loginModeLogin: "Sign in",
+    loginModeRegister: "Register with code",
+    registerHint: "You need an invitation code from someone already inside — B2B access is invite-only, not open sign-up.",
+    registerCode: "Invitation code",
+    registerName: "Your name",
+    registerEmail: "Email",
+    registerPassword: "Password (min. 8 characters)",
+    registerButton: "Create account",
+    invitesBtn: "Invitations",
+    invitesTitle: "Invitation codes",
+    invitesGenerate: "Generate a new code",
+    invitesRole: "Grants role",
+    invitesNote: "Note (optional)",
+    invitesNotePlaceholder: "e.g. for Acme Ventures",
+    invitesCreateBtn: "Generate code",
+    invitesCopy: "Copy",
+    invitesCopied: "Copied!",
+    invitesListTitle: "Codes issued",
+    invitesEmpty: "No codes generated yet.",
+    invitesUsedBy: "Used by",
+    invitesUnused: "Not used yet",
   },
   es: {
     title: "Intake startups DACH",
@@ -572,13 +610,11 @@ export const copy: Record<Language, Dict> = {
     ticketsEyebrow: "PIPELINE",
     ticketsTitle: "Tickets",
     ticketsApproved: "Aprobados",
-    ticketsFollowUp: "En seguimiento",
-    ticketsCompleted: "Completados",
     ticketsRejected: "Rechazados",
     ticketsEmpty: "Todavía no hay tickets aquí.",
-    markCompleted: "Marcar completado",
-    markRejected: "Rechazar",
     removeFromTickets: "Quitar de tickets",
+    rejectionSentTitle: "Feedback de rechazo generado y enviado",
+    rejectionSentClose: "Cerrar",
     archiveEyebrow: "ARCHIVO",
     archiveTitle: "Ya analizadas",
     archiveLoading: "Cargando archivo…",
@@ -630,6 +666,27 @@ export const copy: Record<Language, Dict> = {
     switchRole: "Cambiar de rol",
     tabScan: "Escaneo",
     tabSubmissionsReceived: "Solicitudes recibidas",
+    loginModeLogin: "Iniciar sesión",
+    loginModeRegister: "Registrarme con código",
+    registerHint: "Necesitas un código de invitación de alguien que ya esté adentro — el acceso B2B es solo por invitación, no es registro abierto.",
+    registerCode: "Código de invitación",
+    registerName: "Tu nombre",
+    registerEmail: "Email",
+    registerPassword: "Contraseña (mín. 8 caracteres)",
+    registerButton: "Crear cuenta",
+    invitesBtn: "Invitaciones",
+    invitesTitle: "Códigos de invitación",
+    invitesGenerate: "Generar un código nuevo",
+    invitesRole: "Otorga el rol",
+    invitesNote: "Nota (opcional)",
+    invitesNotePlaceholder: "ej. para Acme Ventures",
+    invitesCreateBtn: "Generar código",
+    invitesCopy: "Copiar",
+    invitesCopied: "¡Copiado!",
+    invitesListTitle: "Códigos emitidos",
+    invitesEmpty: "Todavía no se ha generado ningún código.",
+    invitesUsedBy: "Usado por",
+    invitesUnused: "Sin usar",
   },
   de: {
     title: "DACH Startup Intake",
@@ -777,13 +834,11 @@ export const copy: Record<Language, Dict> = {
     ticketsEyebrow: "PIPELINE",
     ticketsTitle: "Tickets",
     ticketsApproved: "Genehmigt",
-    ticketsFollowUp: "In Nachverfolgung",
-    ticketsCompleted: "Abgeschlossen",
     ticketsRejected: "Abgelehnt",
     ticketsEmpty: "Noch keine Tickets hier.",
-    markCompleted: "Als abgeschlossen markieren",
-    markRejected: "Ablehnen",
     removeFromTickets: "Aus Tickets entfernen",
+    rejectionSentTitle: "Ablehnungs-Feedback generiert und gesendet",
+    rejectionSentClose: "Schließen",
     archiveEyebrow: "ARCHIV",
     archiveTitle: "Bereits analysiert",
     archiveLoading: "Archiv wird geladen…",
@@ -835,6 +890,27 @@ export const copy: Record<Language, Dict> = {
     switchRole: "Rolle wechseln",
     tabScan: "Scan",
     tabSubmissionsReceived: "Erhaltene Einreichungen",
+    loginModeLogin: "Anmelden",
+    loginModeRegister: "Mit Code registrieren",
+    registerHint: "Du brauchst einen Einladungscode von jemandem, der schon drin ist — der B2B-Zugang ist nur per Einladung, keine offene Registrierung.",
+    registerCode: "Einladungscode",
+    registerName: "Dein Name",
+    registerEmail: "E-Mail",
+    registerPassword: "Passwort (mind. 8 Zeichen)",
+    registerButton: "Konto erstellen",
+    invitesBtn: "Einladungen",
+    invitesTitle: "Einladungscodes",
+    invitesGenerate: "Neuen Code generieren",
+    invitesRole: "Vergibt Rolle",
+    invitesNote: "Notiz (optional)",
+    invitesNotePlaceholder: "z. B. für Acme Ventures",
+    invitesCreateBtn: "Code generieren",
+    invitesCopy: "Kopieren",
+    invitesCopied: "Kopiert!",
+    invitesListTitle: "Ausgestellte Codes",
+    invitesEmpty: "Noch keine Codes generiert.",
+    invitesUsedBy: "Verwendet von",
+    invitesUnused: "Noch nicht verwendet",
   },
 };
 

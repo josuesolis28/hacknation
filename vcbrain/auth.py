@@ -39,14 +39,26 @@ def issue_token(username: str) -> str:
     return f"{header}.{payload}.{_b64(signature)}"
 
 
-def verify_credentials(username: str, password: str, client_id: str) -> bool:
+def verify_credentials(
+    username: str,
+    password: str,
+    client_id: str,
+    expected_user: str | None = None,
+    expected_password: str | None = None,
+) -> bool:
+    """Compara contra un par usuario/contraseña fijo (default: el admin
+    compartido). Reutilizable para otras cuentas de prueba fijas (ver la
+    de "startup" en config.py) con el mismo rate-limit por client_id."""
+    expected_user = expected_user if expected_user is not None else settings.admin_username
+    expected_password = expected_password if expected_password is not None else settings.admin_password
+
     now = time.time()
     attempts = _attempts[client_id]
     while attempts and attempts[0] < now - _WINDOW_SECONDS:
         attempts.popleft()
     if len(attempts) >= _MAX_ATTEMPTS:
         raise HTTPException(status_code=429, detail="Demasiados intentos. Inténtalo más tarde.")
-    valid = secrets.compare_digest(username, settings.admin_username) and secrets.compare_digest(password, settings.admin_password)
+    valid = secrets.compare_digest(username, expected_user) and secrets.compare_digest(password, expected_password)
     if not valid:
         attempts.append(now)
     else:

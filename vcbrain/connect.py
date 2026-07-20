@@ -35,3 +35,36 @@ def generate_outreach(founder: FounderProfile) -> tuple[str, str]:
     )
     message, provider = llm.complete(SYSTEM_PROMPT, user, max_tokens=1000)
     return message.strip(), provider
+
+
+_REJECTION_LANGUAGES = {"es": "Spanish", "en": "English", "de": "German"}
+
+_REJECTION_SYSTEM_PROMPT = """\
+Eres el asociado de un fondo VC Early-Stage (Maschmeyer Group) escribiendo \
+una respuesta de rechazo personalizada y respetuosa a un founder cuya \
+startup no calificó en esta ronda.
+
+Reglas:
+- Máximo 100 palabras, tono humano y directo, nunca genérico ni frío.
+- Cita 1-2 razones CONCRETAS del feedback dado — no inventes otras ni seas vago.
+- Deja la puerta abierta: si resuelven esos puntos, pueden volver a aplicar.
+- Escribe TODO el mensaje en {language}.
+- Responde SOLO con el cuerpo del mensaje, sin asunto ni firma extra.
+"""
+
+
+def generate_rejection_note(founder: FounderProfile, language: str) -> tuple[str, str]:
+    """Genera la nota de rechazo personalizada en el idioma indicado
+    (es/en/de). Devuelve (nota, proveedor)."""
+    lang_name = _REJECTION_LANGUAGES.get(language, "English")
+    system = _REJECTION_SYSTEM_PROMPT.format(language=lang_name)
+    user = (
+        f"Fundador: {founder.name}\n"
+        f"Empresa: {founder.company}\n"
+        f"Score: {founder.founder_score}/100\n"
+        f"Feedback específico: {'; '.join(founder.feedback) or 'n/a'}\n"
+        f"Justificación: {founder.justification or 'n/a'}\n\n"
+        "Escribe el mensaje de rechazo personalizado."
+    )
+    message, provider = llm.complete(system, user, max_tokens=600)
+    return message.strip(), provider

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   DecisionState,
+  TicketNote,
   TicketStatus,
   clearAccessToken,
   decisionKey,
@@ -10,13 +11,14 @@ import {
   getLatestScan,
   getTickets,
   hasAccessToken,
+  rejectTicket,
   runMaschmeyerScout,
   setDecision,
   setTicketStatus,
 } from "./api";
 import { AnalysisPhases, Stage } from "./components/AnalysisPhases";
-import { AnalyzedArchive } from "./components/AnalyzedArchive";
 import { FounderCard } from "./components/FounderCard";
+import { Invites } from "./components/Invites";
 import { Login } from "./components/Login";
 import { MySubmissions } from "./components/MySubmissions";
 import { RoleChooser } from "./components/RoleChooser";
@@ -37,9 +39,11 @@ function InvestorWorkspace({ language, setLanguage, onSwitchRole }: {
   const [selected, setSelected] = useState<FounderProfile | null>(null);
   const [decisions, setDecisions] = useState<Record<string, DecisionState>>({});
   const [tickets, setTickets] = useState<Record<string, TicketStatus>>({});
+  const [ticketNotes, setTicketNotes] = useState<Record<string, TicketNote>>({});
+  const [rejectionToast, setRejectionToast] = useState<{ company: string; note: string } | null>(null);
   const [progress, setProgress] = useState(0);
   const [submissionFounders, setSubmissionFounders] = useState<FounderProfile[]>([]);
-  const [view, setView] = useState<"scan" | "submissions">("scan");
+  const [showInvites, setShowInvites] = useState(false);
   const text = copy[language];
 
   const reloadSubmissions = () => {
@@ -69,6 +73,34 @@ function InvestorWorkspace({ language, setLanguage, onSwitchRole }: {
     });
     void setTicketStatus(company, name, status);
   };
+
+  // Rechazar es una sola acción: marca el ticket como rechazado en el
+  // servidor Y genera automáticamente la nota de feedback personalizada en
+  // el idioma actual del perfil — luego sincroniza ambos estados locales.
+  const rejectFounder = (founder: FounderProfile) => {
+    const key = decisionKey(founder.company, founder.name);
+    setTickets((prev) => ({ ...prev, [key]: "rejected" }));
+    void rejectTicket({
+      company: founder.company,
+      name: founder.name,
+      role: founder.role,
+      founder_score: founder.founder_score,
+      justification: founder.justification,
+      feedback: founder.feedback,
+      language,
+    })
+      .then(({ note }) => {
+        setTicketNotes((prev) => ({ ...prev, [key]: { note, language } }));
+        setRejectionToast({ company: founder.company, note });
+      })
+      .catch(() => undefined);
+  };
+
+  useEffect(() => {
+    if (!rejectionToast) return;
+    const id = window.setTimeout(() => setRejectionToast(null), 8000);
+    return () => window.clearTimeout(id);
+  }, [rejectionToast]);
 
   useEffect(() => {
     void fetchHealth()
@@ -125,7 +157,10 @@ function InvestorWorkspace({ language, setLanguage, onSwitchRole }: {
       .then(({ decisions }) => setDecisions(decisions))
       .catch(() => undefined);
     void getTickets()
-      .then(({ tickets }) => setTickets(tickets))
+      .then(({ tickets, notes }) => {
+        setTickets(tickets);
+        setTicketNotes(notes);
+      })
       .catch(() => undefined);
     reloadSubmissions();
 
@@ -153,6 +188,14 @@ function InvestorWorkspace({ language, setLanguage, onSwitchRole }: {
   const candidates = result?.founders.length ?? 0;
   const approved = result?.founders.filter((f) => f.decision === "approved").length ?? 0;
 
+  // El tablero de tickets debe reflejar tanto lo que encontró el Scout como
+  // lo auto-enviado — sin duplicar si la misma empresa aparece en ambos.
+  const ticketableFounders = Array.from(
+    new Map(
+      [...(result?.founders ?? []), ...submissionFounders].map((f) => [decisionKey(f.company, f.name), f]),
+    ).values(),
+  );
+
   return (
     <main className="workspace">
       <header className="topbar">
@@ -170,6 +213,9 @@ function InvestorWorkspace({ language, setLanguage, onSwitchRole }: {
           <button className="ghost" onClick={() => void rescan()} disabled={stage !== "complete"}>
             {text.rescan}
           </button>
+          <button className="ghost" onClick={() => setShowInvites(true)}>
+            {text.invitesBtn}
+          </button>
           <button className="ghost" onClick={onSwitchRole}>
             {text.switchRole}
           </button>
@@ -185,51 +231,59 @@ function InvestorWorkspace({ language, setLanguage, onSwitchRole }: {
         </div>
       </header>
 
-      <div className="view-tabs">
-        <button className={view === "scan" ? "active" : ""} onClick={() => setView("scan")}>
-          {text.tabScan}
-        </button>
-        <button className={view === "submissions" ? "active" : ""} onClick={() => setView("submissions")}>
-          {text.tabSubmissionsReceived} {submissionFounders.length > 0 ? `(${submissionFounders.length})` : ""}
-        </button>
-      </div>
+      {showInvites && <Invites language={language} onClose={() => setShowInvites(false)} />}
 
-      {view === "scan" && (
-        <>
-          <AnalysisPhases stage={stage} language={language} progress={progress} />
+      {rejectionToast && (
+        <div className="reject-toast" role="status">
+          <div className="reject-toast-head">
+            <strong>{text.rejectionSentTitle}</strong>
+            <button className="modal-close" onClick={() => setRejectionToast(null)} aria-label={text.rejectionSentClose}>
+              ✕
+            </button>
+          </div>
+          <p className="reject-toast-company">{rejectionToast.company}</p>
+          <p className="reject-toast-note">{rejectionToast.note}</p>
+        </div>
+      )}
 
-          <section className="metrics">
-            <article>
-              <span>{text.detected}</span>
-              <strong>{total}</strong>
-              <small>{stage === "complete" ? text.analyzed : text.collecting}</small>
-            </article>
-            <article>
-              <span>{text.validating}</span>
-              <strong>{stage === "complete" ? candidates : Math.max(0, Math.round(total * 0.35))}</strong>
-              <small>{text.founderSignals}</small>
-            </article>
-            <article>
-              <span>{text.validated}</span>
-              <strong>{approved}</strong>
-              <small>
-                {text.gatesMet}
-                {result?.founders.filter((f) => f.country_code === "DE" || f.country_code === "CH" || f.country_code === "AT").length
-                  ? ` · DACH`
-                  : ""}
-              </small>
-            </article>
-          </section>
+      <AnalysisPhases stage={stage} language={language} progress={progress} />
 
-          {error && <div className="status error">{error}</div>}
-          {result?.errors.map((item) => (
-            <div className="status error" key={item}>
-              {item}
-            </div>
-          ))}
+      <section className="metrics">
+        <article>
+          <span>{text.detected}</span>
+          <strong>{total}</strong>
+          <small>{stage === "complete" ? text.analyzed : text.collecting}</small>
+        </article>
+        <article>
+          <span>{text.validating}</span>
+          <strong>{stage === "complete" ? candidates : Math.max(0, Math.round(total * 0.35))}</strong>
+          <small>{text.founderSignals}</small>
+        </article>
+        <article>
+          <span>{text.validated}</span>
+          <strong>{approved}</strong>
+          <small>
+            {text.gatesMet}
+            {result?.founders.filter((f) => f.country_code === "DE" || f.country_code === "CH" || f.country_code === "AT").length
+              ? ` · DACH`
+              : ""}
+          </small>
+        </article>
+      </section>
 
-          <div className="section-divider" />
+      {error && <div className="status error">{error}</div>}
+      {result?.errors
+        .filter((item) => !item.startsWith("Se alcanzó el presupuesto de"))
+        .map((item) => (
+          <div className="status error" key={item}>
+            {item}
+          </div>
+        ))}
 
+      <div className="section-divider" />
+
+      <div className="investor-grid">
+        <div className="investor-main">
           <section className="candidate-list">
             <div className="section-heading">
               <div>
@@ -257,54 +311,54 @@ function InvestorWorkspace({ language, setLanguage, onSwitchRole }: {
                   onDecisionChange={updateDecision}
                   ticketStatus={tickets[decisionKey(founder.company, founder.name)]}
                   onTicketChange={updateTicket}
+                  onReject={rejectFounder}
                 />
               ))}
             </div>
           </section>
 
+          <section className="candidate-list">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{text.adminSubmissionsEyebrow}</span>
+                <h2>{text.tabSubmissionsReceived}</h2>
+              </div>
+              <span>
+                {submissionFounders.length} {text.profiles}
+              </span>
+            </div>
+            {submissionFounders.length === 0 ? (
+              <p className="muted">{text.mySubmissionsEmpty}</p>
+            ) : (
+              <div className="startup-grid">
+                {submissionFounders.map((founder) => (
+                  <FounderCard
+                    key={`sub-${founder.name}-${founder.company}`}
+                    founder={founder}
+                    language={language}
+                    selected={selected?.name === founder.name && selected?.company === founder.company}
+                    onSelect={() => setSelected(founder)}
+                    initialDecision={decisions[decisionKey(founder.company, founder.name)]}
+                    onDecisionChange={updateDecision}
+                    ticketStatus={tickets[decisionKey(founder.company, founder.name)]}
+                    onTicketChange={updateTicket}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <aside className="tickets-sidebar">
           <TicketsBoard
-            founders={result?.founders ?? []}
+            founders={ticketableFounders}
             tickets={tickets}
+            notes={ticketNotes}
             language={language}
             onTicketChange={updateTicket}
           />
-
-          <AnalyzedArchive language={language} />
-        </>
-      )}
-
-      {view === "submissions" && (
-        <section className="candidate-list">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">{text.adminSubmissionsEyebrow}</span>
-              <h2>{text.adminSubmissionsTitle}</h2>
-            </div>
-            <span>
-              {submissionFounders.length} {text.profiles}
-            </span>
-          </div>
-          {submissionFounders.length === 0 ? (
-            <p className="muted">{text.mySubmissionsEmpty}</p>
-          ) : (
-            <div className="startup-grid">
-              {submissionFounders.map((founder) => (
-                <FounderCard
-                  key={`sub-${founder.name}-${founder.company}`}
-                  founder={founder}
-                  language={language}
-                  selected={selected?.name === founder.name && selected?.company === founder.company}
-                  onSelect={() => setSelected(founder)}
-                  initialDecision={decisions[decisionKey(founder.company, founder.name)]}
-                  onDecisionChange={updateDecision}
-                  ticketStatus={tickets[decisionKey(founder.company, founder.name)]}
-                  onTicketChange={updateTicket}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+        </aside>
+      </div>
 
       <footer className="app-footer">{text.poweredBy}</footer>
     </main>
@@ -381,8 +435,9 @@ export default function App() {
     saveLanguage(language);
   }, [language]);
 
-  if (!authenticated) return <Login onSuccess={() => setAuthenticated(true)} />;
-
+  // Primero se pregunta el rol (Investor/Startup), y solo después se llega
+  // al login — así la pantalla de acceso ya sabe qué credenciales de prueba
+  // ofrecer (admin para investor, startup1 para startup).
   if (!role) {
     return (
       <RoleChooser
@@ -390,6 +445,28 @@ export default function App() {
         onChoose={(r) => {
           saveRole(r);
           setRole(r);
+        }}
+      />
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <Login
+        presetRole={role}
+        onBack={() => {
+          clearRole();
+          setRole(null);
+        }}
+        onSuccess={(serverRole) => {
+          setAuthenticated(true);
+          // Una cuenta registrada por código puede traer un rol distinto al
+          // preseleccionado (p. ej. alguien eligió "startup" pero se
+          // registró con un código de investor) — el rol del servidor manda.
+          if (serverRole && serverRole !== role) {
+            saveRole(serverRole);
+            setRole(serverRole);
+          }
         }}
       />
     );

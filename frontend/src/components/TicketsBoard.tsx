@@ -1,4 +1,4 @@
-import { TicketStatus } from "../api";
+import { TicketNote, TicketStatus } from "../api";
 import { useTranslatedFounder } from "../hooks/useTranslatedFounder";
 import { Language, copy, trafficLabel } from "../i18n";
 import type { FounderProfile } from "../types";
@@ -6,11 +6,13 @@ import type { FounderProfile } from "../types";
 function TicketCard({
   founder,
   status,
+  note,
   language,
   onMove,
 }: {
   founder: FounderProfile;
   status: TicketStatus;
+  note?: TicketNote;
   language: Language;
   onMove: (status: TicketStatus) => void;
 }) {
@@ -38,53 +40,47 @@ function TicketCard({
         </p>
       )}
 
-      {(translated?.feedback.length ?? 0) > 0 && (
-        <ul className="ticket-feedback">
-          {translated?.feedback.slice(0, 2).map((f, i) => (
-            <li key={i}>{f}</li>
-          ))}
-        </ul>
-      )}
-      {!(translated?.feedback.length ?? 0) && translated?.justification && (
-        <p className="ticket-justification">{translated.justification}</p>
+      {status === "rejected" && note ? (
+        <p className="ticket-note">{note.note}</p>
+      ) : (
+        <>
+          {(translated?.feedback.length ?? 0) > 0 && (
+            <ul className="ticket-feedback">
+              {translated?.feedback.slice(0, 2).map((f, i) => (
+                <li key={i}>{f}</li>
+              ))}
+            </ul>
+          )}
+          {!(translated?.feedback.length ?? 0) && translated?.justification && (
+            <p className="ticket-justification">{translated.justification}</p>
+          )}
+        </>
       )}
 
       <div className="ticket-actions">
-        {status === "follow_up" && (
-          <>
-            <button className="ghost" onClick={() => onMove("completed")}>
-              {text.markCompleted}
-            </button>
-            <button className="ghost" onClick={() => onMove("rejected")}>
-              {text.markRejected}
-            </button>
-          </>
-        )}
-        {status !== "follow_up" && (
-          <button className="ghost" onClick={() => onMove("clear")}>
-            {text.removeFromTickets}
-          </button>
-        )}
+        <button className="ghost" onClick={() => onMove("clear")}>
+          {text.removeFromTickets}
+        </button>
       </div>
     </article>
   );
 }
 
-const COLUMNS: { status: TicketStatus; titleKey: "ticketsApproved" | "ticketsFollowUp" | "ticketsCompleted" | "ticketsRejected" }[] = [
+const COLUMNS: { status: TicketStatus; titleKey: "ticketsApproved" | "ticketsRejected" }[] = [
   { status: "approved", titleKey: "ticketsApproved" },
-  { status: "follow_up", titleKey: "ticketsFollowUp" },
-  { status: "completed", titleKey: "ticketsCompleted" },
   { status: "rejected", titleKey: "ticketsRejected" },
 ];
 
 export function TicketsBoard({
   founders,
   tickets,
+  notes,
   language,
   onTicketChange,
 }: {
   founders: FounderProfile[];
   tickets: Record<string, string>;
+  notes: Record<string, TicketNote>;
   language: Language;
   onTicketChange: (company: string, name: string, status: TicketStatus) => void;
 }) {
@@ -120,6 +116,7 @@ export function TicketsBoard({
                     key={byKey(founder)}
                     founder={founder}
                     status={col.status}
+                    note={notes[byKey(founder)]}
                     language={language}
                     onMove={(status) => onTicketChange(founder.company, founder.name, status)}
                   />

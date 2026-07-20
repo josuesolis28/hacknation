@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { getAuthConfig, login, loginWithGoogle, setAccessToken } from "../api";
+import { getAuthConfig, login, loginWithGoogle, register, setAccessToken } from "../api";
 import { Language, copy, loadLanguage, saveLanguage } from "../i18n";
+import type { Role } from "../role";
 
 declare global {
   interface Window {
@@ -39,10 +40,24 @@ function loadGsiScript(): Promise<void> {
   });
 }
 
-export function Login({ onSuccess }: { onSuccess: () => void }) {
+export function Login({
+  presetRole,
+  onBack,
+  onSuccess,
+}: {
+  presetRole: Role;
+  onBack: () => void;
+  onSuccess: (role: Role | null) => void;
+}) {
   const [language, setLanguage] = useState<Language>(() => loadLanguage("en"));
-  const [username, setUsername] = useState("admin12345");
-  const [password, setPassword] = useState("admin12345");
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const isStartup = presetRole === "startup";
+  const [username, setUsername] = useState(isStartup ? "startup1" : "admin12345");
+  const [password, setPassword] = useState(isStartup ? "startup1" : "admin12345");
+  const [code, setCode] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regName, setRegName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleClientId, setGoogleClientId] = useState("");
@@ -60,7 +75,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
   }, []);
 
   useEffect(() => {
-    if (!googleClientId || !googleBtnRef.current) return;
+    if (!googleClientId || !googleBtnRef.current || mode !== "login" || isStartup) return;
     let cancelled = false;
     void loadGsiScript().then(() => {
       if (cancelled || !window.google || !googleBtnRef.current) return;
@@ -72,7 +87,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
           void loginWithGoogle(response.credential)
             .then((result) => {
               setAccessToken(result.access_token);
-              onSuccess();
+              onSuccess(null);
             })
             .catch((e) => setError(e instanceof Error ? e.message : "Unable to sign in with Google"))
             .finally(() => setLoading(false));
@@ -87,16 +102,16 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [googleClientId, onSuccess]);
+  }, [googleClientId, mode, isStartup, onSuccess]);
 
-  const submit = async (event: FormEvent) => {
+  const submitLogin = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setError("");
     try {
       const result = await login(username, password);
       setAccessToken(result.access_token);
-      onSuccess();
+      onSuccess(result.role);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to sign in");
     } finally {
@@ -104,10 +119,28 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
+  const submitRegister = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const result = await register(code.trim(), regEmail.trim(), regPassword, regName.trim());
+      setAccessToken(result.access_token);
+      onSuccess(result.role);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to register");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <main className="login-page">
-      <form className="login-card" onSubmit={submit}>
+      <form className="login-card" onSubmit={mode === "login" ? submitLogin : submitRegister}>
         <div className="login-lang">
+          <button type="button" className="login-back" onClick={onBack}>
+            ‹ {isStartup ? text.roleStartup : text.roleInvestor}
+          </button>
           <select value={language} onChange={(e) => setLanguage(e.target.value as Language)} aria-label="Language">
             <option value="en">EN</option>
             <option value="es">ES</option>
@@ -118,31 +151,85 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
         <h1>{text.loginTitle}</h1>
         <p>{text.loginBlurb}</p>
 
-        {googleClientId && (
+        <div className="login-mode-tabs">
+          <button type="button" className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>
+            {text.loginModeLogin}
+          </button>
+          <button type="button" className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>
+            {text.loginModeRegister}
+          </button>
+        </div>
+
+        {mode === "login" ? (
           <>
-            <div ref={googleBtnRef} className="google-btn-slot" />
-            <div className="login-divider">
-              <span>{text.orDivider}</span>
-            </div>
+            {googleClientId && !isStartup && (
+              <>
+                <div ref={googleBtnRef} className="google-btn-slot" />
+                <div className="login-divider">
+                  <span>{text.orDivider}</span>
+                </div>
+              </>
+            )}
+            <label>
+              {text.user}
+              <input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+            </label>
+            <label>
+              {text.password}
+              <input
+                autoComplete="current-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+            {error && <p className="form-error">{error}</p>}
+            <button disabled={loading}>{loading ? text.authenticating : text.access}</button>
+            <small>{text.loginHint}</small>
+          </>
+        ) : (
+          <>
+            <p className="login-register-hint">{text.registerHint}</p>
+            <label>
+              {text.registerCode}
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="XXXXXXXX"
+                required
+              />
+            </label>
+            <label>
+              {text.registerName}
+              <input value={regName} onChange={(e) => setRegName(e.target.value)} />
+            </label>
+            <label>
+              {text.registerEmail}
+              <input
+                type="email"
+                autoComplete="email"
+                value={regEmail}
+                onChange={(e) => setRegEmail(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              {text.registerPassword}
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={regPassword}
+                onChange={(e) => setRegPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </label>
+            {error && <p className="form-error">{error}</p>}
+            <button disabled={loading || !code.trim() || !regEmail.trim() || regPassword.length < 8}>
+              {loading ? text.authenticating : text.registerButton}
+            </button>
           </>
         )}
-
-        <label>
-          {text.user}
-          <input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
-        </label>
-        <label>
-          {text.password}
-          <input
-            autoComplete="current-password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
-        {error && <p className="form-error">{error}</p>}
-        <button disabled={loading}>{loading ? text.authenticating : text.access}</button>
-        <small>{text.loginHint}</small>
       </form>
     </main>
   );

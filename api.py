@@ -12,7 +12,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from vcbrain.config import settings
-from vcbrain.connect import generate_outreach
+from vcbrain.connect import generate_outreach, generate_rejection_note
 from vcbrain.auth import current_user, issue_token, request_client_id, verify_credentials, verify_google_id_token
 from vcbrain import db
 from vcbrain.license_gate import verify_license
@@ -87,7 +87,7 @@ class DecisionRequest(BaseModel):
 class TicketRequest(BaseModel):
     company: str
     name: str
-    status: str  # "approved" | "rejected" | "follow_up" | "completed" | "clear"
+    status: str  # "approved" | "clear" (el rechazo pasa por /api/tickets/reject)
 
 
 @app.get("/api/health")
@@ -123,9 +123,90 @@ def auth_config():
 
 @app.post("/api/auth/login")
 def login(req: LoginRequest, request: Request):
-    if not verify_credentials(req.username, req.password, request_client_id(request)):
+    # Orden: (1) admin compartido, sin rol fijo — el frontend usa el rol
+    # elegido antes del login; (2) cuenta fija de prueba "startup" (QA/demo);
+    # (3) cuentas B2B registradas por código de invitación (rol fijo desde
+    # el registro).
+    client_id = request_client_id(request)
+    if verify_credentials(req.username, req.password, client_id):
+        return {
+            "access_token": issue_token(req.username),
+            "token_type": "bearer",
+            "expires_in": settings.jwt_ttl_seconds,
+            "role": None,
+        }
+    if verify_credentials(
+        req.username, req.password, client_id, settings.startup_test_username, settings.startup_test_password
+    ):
+        return {
+            "access_token": issue_token(req.username),
+            "token_type": "bearer",
+            "expires_in": settings.jwt_ttl_seconds,
+            "role": "startup",
+        }
+    account = db.verify_account_password(req.username, req.password)
+    if account is None:
         raise HTTPException(status_code=401, detail="Usuario o contraseña inválidos.")
-    return {"access_token": issue_token(req.username), "token_type": "bearer", "expires_in": settings.jwt_ttl_seconds}
+    return {
+        "access_token": issue_token(account["email"]),
+        "token_type": "bearer",
+        "expires_in": settings.jwt_ttl_seconds,
+        "role": account["role"],
+    }
+
+
+class RegisterRequest(BaseModel):
+    code: str
+    email: str
+    password: str
+    name: str = ""
+
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest):
+    """Registro por código de invitación (ver /api/invites) — el código fija
+    el rol (investor|startup) de la cuenta que se crea con él."""
+    code = req.code.strip().upper()
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Email inválido.")
+    if len(req.password) < 8:
+        raise HTTPException(status_code=422, detail="La contraseña debe tener al menos 8 caracteres.")
+
+    invite = db.get_invite_code(code)
+    if invite is None:
+        raise HTTPException(status_code=404, detail="Código de invitación no encontrado.")
+    if invite["used_by"]:
+        raise HTTPException(status_code=422, detail="Este código de invitación ya fue usado.")
+    if db.get_account(email) is not None:
+        raise HTTPException(status_code=422, detail="Ya existe una cuenta con ese email.")
+
+    db.create_account(email=email, password=req.password, role=invite["role"], name=req.name.strip(), invite_code=code)
+    db.mark_invite_used(code, email)
+    return {
+        "access_token": issue_token(email),
+        "token_type": "bearer",
+        "expires_in": settings.jwt_ttl_seconds,
+        "role": invite["role"],
+    }
+
+
+class InviteRequest(BaseModel):
+    role: str  # "investor" | "startup"
+    note: str = ""
+
+
+@app.post("/api/invites")
+def create_invite(req: InviteRequest, user: str = Depends(current_user)):
+    if req.role not in {"investor", "startup"}:
+        raise HTTPException(status_code=422, detail="role debe ser 'investor' o 'startup'.")
+    code = db.create_invite_code(role=req.role, note=req.note.strip(), created_by=user)
+    return {"code": code}
+
+
+@app.get("/api/invites")
+def list_invites(_: str = Depends(current_user)):
+    return {"invites": db.list_invite_codes()}
 
 
 @app.post("/api/auth/google")
@@ -255,20 +336,55 @@ def set_decision(req: DecisionRequest, _: str = Depends(current_user)):
 
 @app.get("/api/tickets")
 def list_tickets(_: str = Depends(current_user)):
-    """Tablero de tickets (aprobados / rechazados / en seguimiento / \
-completados), persistido para que sobreviva a un reload."""
-    return {"tickets": db.get_tickets()}
+    """Tablero de tickets (aprobados / rechazados), persistido para que
+    sobreviva a un reload. Incluye la nota de rechazo autogenerada, si hay."""
+    return {"tickets": db.get_tickets(), "notes": db.get_ticket_notes()}
 
 
 @app.post("/api/tickets")
 def set_ticket(req: TicketRequest, _: str = Depends(current_user)):
-    valid = {"approved", "rejected", "follow_up", "completed", "clear"}
+    valid = {"approved", "clear"}  # el rechazo pasa por /api/tickets/reject
     if req.status not in valid:
         raise HTTPException(status_code=422, detail=f"status debe ser uno de: {', '.join(sorted(valid))}.")
     if not req.company.strip() or not req.name.strip():
         raise HTTPException(status_code=422, detail="company y name son obligatorios.")
     db.set_ticket_status(req.company.strip(), req.name.strip(), req.status)
     return {"ok": True}
+
+
+class RejectTicketRequest(BaseModel):
+    company: str
+    name: str
+    role: str = ""
+    founder_score: int = 0
+    justification: str = ""
+    feedback: list[str] = []
+    language: str = "en"
+
+
+@app.post("/api/tickets/reject")
+def reject_ticket(req: RejectTicketRequest, _: str = Depends(current_user)):
+    """Rechaza en un solo paso: marca el ticket como rechazado y genera
+    automáticamente una nota de feedback personalizada en el idioma
+    seleccionado en el perfil (es/en/de)."""
+    if not req.company.strip() or not req.name.strip():
+        raise HTTPException(status_code=422, detail="company y name son obligatorios.")
+    language = req.language if req.language in {"es", "en", "de"} else "en"
+    founder = FounderProfile(
+        name=req.name.strip(),
+        company=req.company.strip(),
+        role=req.role.strip(),
+        founder_score=req.founder_score,
+        justification=req.justification,
+        feedback=req.feedback,
+    )
+    try:
+        note, _provider = generate_rejection_note(founder, language)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    db.set_ticket_status(founder.company, founder.name, "rejected")
+    db.save_ticket_note(founder.company, founder.name, note, language)
+    return {"note": note}
 
 
 def _submission_status(ticket_status: str | None) -> str:
@@ -278,10 +394,8 @@ def _submission_status(ticket_status: str | None) -> str:
     encontradas por el Scout)."""
     if ticket_status == "approved":
         return "approved"
-    if ticket_status in ("rejected", "completed"):
+    if ticket_status == "rejected":
         return "rejected"
-    if ticket_status == "follow_up":
-        return "in_progress"
     return "submitted"
 
 

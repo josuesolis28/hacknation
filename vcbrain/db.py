@@ -13,7 +13,10 @@ Tablas:
   así una segunda corrida no vuelve a "descubrir" lo mismo desde cero.
 """
 
+import hashlib
 import json
+import os
+import secrets
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -84,6 +87,12 @@ CREATE TABLE IF NOT EXISTS tickets (
     status TEXT NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ticket_notes (
+    founder_key TEXT PRIMARY KEY,
+    note TEXT NOT NULL,
+    language TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
 CREATE TABLE IF NOT EXISTS submissions (
     id SERIAL PRIMARY KEY,
     submitter TEXT NOT NULL,
@@ -101,6 +110,24 @@ CREATE TABLE IF NOT EXISTS submission_files (
     content_type TEXT NOT NULL,
     data BYTEA,
     url TEXT,
+    created_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS invite_codes (
+    code TEXT PRIMARY KEY,
+    role TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    used_by TEXT,
+    used_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS accounts (
+    email TEXT PRIMARY KEY,
+    password_hash TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    role TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    invite_code TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL
 );
 """
@@ -140,6 +167,12 @@ CREATE TABLE IF NOT EXISTS tickets (
     status TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ticket_notes (
+    founder_key TEXT PRIMARY KEY,
+    note TEXT NOT NULL,
+    language TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS submissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     submitter TEXT NOT NULL,
@@ -157,6 +190,24 @@ CREATE TABLE IF NOT EXISTS submission_files (
     content_type TEXT NOT NULL,
     data BLOB,
     url TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS invite_codes (
+    code TEXT PRIMARY KEY,
+    role TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    used_by TEXT,
+    used_at TEXT
+);
+CREATE TABLE IF NOT EXISTS accounts (
+    email TEXT PRIMARY KEY,
+    password_hash TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    role TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    invite_code TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
 """
@@ -265,21 +316,21 @@ def get_decisions() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Tickets: tablero de aprobados / rechazados / en seguimiento
+# Tickets: tablero de aprobados / rechazados (binario, sin estados intermedios)
 # ---------------------------------------------------------------------------
-# El checkbox "revisar" de cada tarjeta pasa el lead de "sin ticket" a uno de:
-#   approved   → verde/aprobado manual, el cheque ya se emitió
-#   rejected   → rojo, sin potencial
-#   follow_up  → amarillo con potencial, pendiente de dar seguimiento
-#   completed  → amarillo que se dio seguimiento y se cerró bien
-# (rejected también aplica a un follow_up que finalmente no califica)
+# El checkbox "revisar" de cada tarjeta pasa el lead de "sin ticket" a:
+#   approved  → se generó/emitió el cheque
+#   rejected  → se rechaza y se genera automáticamente una nota de feedback
+#               personalizada (ver ticket_notes / generate_rejection_note)
 
 def set_ticket_status(company: str, name: str, status: str) -> None:
-    """``status`` es 'approved' | 'rejected' | 'follow_up' | 'completed' | 'clear'."""
+    """``status`` es 'approved' | 'rejected' | 'clear'. Al limpiar (clear)
+    también se borra cualquier nota de rechazo asociada."""
     key = founder_key(company, name)
     with _lock, _connect() as conn:
         if status == "clear":
             _exec(conn, f"DELETE FROM tickets WHERE founder_key = {_ph(1)}", (key,))
+            _exec(conn, f"DELETE FROM ticket_notes WHERE founder_key = {_ph(1)}", (key,))
         elif _IS_PG:
             _exec(
                 conn,
@@ -301,6 +352,34 @@ def get_tickets() -> dict[str, str]:
     with _lock, _connect() as conn:
         rows = _fetchall(conn, "SELECT founder_key, status FROM tickets")
         return {row["founder_key"]: row["status"] for row in rows}
+
+
+def save_ticket_note(company: str, name: str, note: str, language: str) -> None:
+    key = founder_key(company, name)
+    with _lock, _connect() as conn:
+        if _IS_PG:
+            _exec(
+                conn,
+                "INSERT INTO ticket_notes (founder_key, note, language, created_at) VALUES (%s, %s, %s, %s) "
+                "ON CONFLICT (founder_key) DO UPDATE SET note = EXCLUDED.note, language = EXCLUDED.language, "
+                "created_at = EXCLUDED.created_at",
+                (key, note, language, _now()),
+            )
+        else:
+            _exec(
+                conn,
+                "INSERT INTO ticket_notes (founder_key, note, language, created_at) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(founder_key) DO UPDATE SET note = excluded.note, language = excluded.language, "
+                "created_at = excluded.created_at",
+                (key, note, language, _now()),
+            )
+        conn.commit()
+
+
+def get_ticket_notes() -> dict[str, dict]:
+    with _lock, _connect() as conn:
+        rows = _fetchall(conn, "SELECT founder_key, note, language FROM ticket_notes")
+        return {row["founder_key"]: {"note": row["note"], "language": row["language"]} for row in rows}
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +408,103 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str) -> 
                 (google_sub, email, name, picture, now, now),
             )
         conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Códigos de invitación y cuentas B2B (email + contraseña)
+# ---------------------------------------------------------------------------
+# En vez de depender de "Sign in with Google" (poco natural para B2B), el
+# acceso se controla con códigos de un solo uso que genera quien ya está
+# adentro (el fondo) y comparte manualmente (WhatsApp, email, etc.) con la
+# startup/inversionista que quiere invitar. El código fija el rol de la
+# cuenta que se registre con él.
+
+_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # sin 0/O/1/I para evitar confusión al copiarlo a mano
+
+
+def _generate_code(length: int = 8) -> str:
+    return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(length))
+
+
+def create_invite_code(role: str, note: str, created_by: str) -> str:
+    code = _generate_code()
+    with _lock, _connect() as conn:
+        _exec(
+            conn,
+            f"INSERT INTO invite_codes (code, role, note, created_by, created_at) VALUES ({_ph(5)})",
+            (code, role, note, created_by, _now()),
+        )
+        conn.commit()
+    return code
+
+
+def list_invite_codes() -> list[dict]:
+    with _lock, _connect() as conn:
+        rows = _fetchall(
+            conn,
+            "SELECT code, role, note, created_by, created_at, used_by, used_at "
+            "FROM invite_codes ORDER BY created_at DESC",
+        )
+        return [dict(row) for row in rows]
+
+
+def get_invite_code(code: str) -> dict | None:
+    with _lock, _connect() as conn:
+        row = _fetchone(
+            conn,
+            f"SELECT code, role, note, used_by FROM invite_codes WHERE code = {_ph(1)}",
+            (code,),
+        )
+        return dict(row) if row else None
+
+
+def mark_invite_used(code: str, used_by: str) -> None:
+    mark = "%s" if _IS_PG else "?"
+    with _lock, _connect() as conn:
+        _exec(
+            conn,
+            f"UPDATE invite_codes SET used_by = {mark}, used_at = {mark} WHERE code = {mark}",
+            (used_by, _now(), code),
+        )
+        conn.commit()
+
+
+def _hash_password(password: str, salt: bytes) -> str:
+    return hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 200_000).hex()
+
+
+def create_account(email: str, password: str, role: str, name: str, invite_code: str) -> None:
+    salt = os.urandom(16)
+    password_hash = _hash_password(password, salt)
+    with _lock, _connect() as conn:
+        _exec(
+            conn,
+            f"INSERT INTO accounts (email, password_hash, salt, role, name, invite_code, created_at) "
+            f"VALUES ({_ph(7)})",
+            (email.lower(), password_hash, salt.hex(), role, name, invite_code, _now()),
+        )
+        conn.commit()
+
+
+def get_account(email: str) -> dict | None:
+    with _lock, _connect() as conn:
+        row = _fetchone(
+            conn,
+            f"SELECT email, password_hash, salt, role, name FROM accounts WHERE email = {_ph(1)}",
+            (email.lower(),),
+        )
+        return dict(row) if row else None
+
+
+def verify_account_password(email: str, password: str) -> dict | None:
+    """Devuelve {email, role, name} si la contraseña es correcta, si no None."""
+    account = get_account(email)
+    if account is None:
+        return None
+    expected = _hash_password(password, bytes.fromhex(account["salt"]))
+    if not secrets.compare_digest(expected, account["password_hash"]):
+        return None
+    return {"email": account["email"], "role": account["role"], "name": account["name"]}
 
 
 # ---------------------------------------------------------------------------

@@ -19,8 +19,16 @@ def _decide_and_merge(founders: list[FounderProfile]) -> list[FounderProfile]:
     se había monitoreado en corridas anteriores (tabla ``companies``): si ya
     existía, no se duplica — se le agregan los campos/listas que esta
     corrida encontró y antes no se habían contemplado, y se vuelve a decidir
-    con la evidencia combinada. Si es nueva, se registra tal cual."""
-    merged: list[FounderProfile] = []
+    con la evidencia combinada. Si es nueva, se registra tal cual.
+
+    Además, dentro de la MISMA corrida, si el Judge devolvió más de un hit
+    para la misma empresa (mismo company+name), se colapsan en una sola
+    tarjeta — de lo contrario quedarían dos filas separadas compartiendo la
+    misma clave de decisión/ticket (company+name), y aprobar/rechazar una
+    haría que la otra cambiara también, como si fueran independientes sin
+    serlo en realidad."""
+    merged: dict[str, FounderProfile] = {}
+    order: list[str] = []
     new_count = 0
     for founder in founders:
         decided = decide(founder)
@@ -31,10 +39,18 @@ def _decide_and_merge(founders: list[FounderProfile]) -> list[FounderProfile]:
         except Exception as exc:  # la persistencia no debe tumbar el pipeline
             logger.warning("No se pudo fusionar %s contra companies: %s", decided.company, exc)
             result_founder = decided
-        merged.append(result_founder)
-    if merged:
-        logger.info("Dedup: %d nuevas, %d ya monitoreadas (fusionadas)", new_count, len(merged) - new_count)
-    return merged
+        key = db.founder_key(result_founder.company, result_founder.name)
+        if key not in merged:
+            order.append(key)
+        merged[key] = result_founder
+    result = [merged[key] for key in order]
+    if result:
+        logger.info(
+            "Dedup: %d nuevas, %d ya monitoreadas/duplicadas en esta corrida (fusionadas)",
+            new_count,
+            len(founders) - len(result),
+        )
+    return result
 
 
 def run_pipeline(query: str, max_results: int | None = None) -> PipelineResult:

@@ -1,3 +1,4 @@
+import type { Role } from "./role";
 import type { FounderProfile, PipelineResult } from "./types";
 
 let accessToken = sessionStorage.getItem("vcbrain_token") ?? "";
@@ -69,12 +70,47 @@ export function generateOutreach(
   }).then((r) => handle<{ message: string; provider: string }>(r));
 }
 
-export function login(username: string, password: string): Promise<{ access_token: string }> {
+export interface AuthResult {
+  access_token: string;
+  role: Role | null;
+}
+
+export function login(username: string, password: string): Promise<AuthResult> {
   return fetch("/api/auth/login", {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({ username, password }),
-  }).then((r) => handle<{ access_token: string }>(r));
+  }).then((r) => handle<AuthResult>(r));
+}
+
+export function register(code: string, email: string, password: string, name: string): Promise<AuthResult> {
+  return fetch("/api/auth/register", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ code, email, password, name }),
+  }).then((r) => handle<AuthResult>(r));
+}
+
+export interface InviteCode {
+  code: string;
+  role: Role;
+  note: string;
+  created_by: string;
+  created_at: string;
+  used_by: string | null;
+  used_at: string | null;
+}
+
+export function createInvite(role: Role, note: string): Promise<{ code: string }> {
+  return fetch("/api/invites", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ role, note }),
+  }).then((r) => handle<{ code: string }>(r));
+}
+
+export function listInvites(): Promise<{ invites: InviteCode[] }> {
+  return fetch("/api/invites", { headers: headers(false) }).then((r) => handle<{ invites: InviteCode[] }>(r));
 }
 
 export function getAuthConfig(): Promise<{ google_client_id: string }> {
@@ -138,11 +174,16 @@ export function decisionKey(company: string, name: string): string {
   return `${company.trim().toLowerCase()}|${name.trim().toLowerCase()}`;
 }
 
-export type TicketStatus = "approved" | "rejected" | "follow_up" | "completed" | "clear";
+export type TicketStatus = "approved" | "rejected" | "clear";
 
-export function getTickets(): Promise<{ tickets: Record<string, TicketStatus> }> {
+export interface TicketNote {
+  note: string;
+  language: string;
+}
+
+export function getTickets(): Promise<{ tickets: Record<string, TicketStatus>; notes: Record<string, TicketNote> }> {
   return fetch("/api/tickets", { headers: headers(false) }).then((r) =>
-    handle<{ tickets: Record<string, TicketStatus> }>(r),
+    handle<{ tickets: Record<string, TicketStatus>; notes: Record<string, TicketNote> }>(r),
   );
 }
 
@@ -154,18 +195,25 @@ export function setTicketStatus(company: string, name: string, status: TicketSta
   }).then((r) => handle<{ ok: boolean }>(r));
 }
 
-export interface CompanyRecord {
-  founder: FounderProfile;
-  first_seen: string;
-  last_seen: string;
-  times_seen: number;
+export interface RejectTicketPayload {
+  company: string;
+  name: string;
+  role: string;
+  founder_score: number;
+  justification: string;
+  feedback: string[];
+  language: "es" | "en" | "de";
 }
 
-export function getCompanies(): Promise<{ companies: CompanyRecord[] }> {
-  return fetch("/api/companies", { headers: headers(false) }).then((r) =>
-    handle<{ companies: CompanyRecord[] }>(r),
-  );
+/** Rechaza y genera la nota de feedback personalizada en un solo request. */
+export function rejectTicket(payload: RejectTicketPayload): Promise<{ note: string }> {
+  return fetch("/api/tickets/reject", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(payload),
+  }).then((r) => handle<{ note: string }>(r));
 }
+
 
 export interface FormMeta {
   sections: string[];

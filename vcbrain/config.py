@@ -83,6 +83,10 @@ class Settings:
 
     admin_username: str = field(default_factory=lambda: os.getenv("VCBRAIN_ADMIN_USERNAME", "admin12345"))
     admin_password: str = field(default_factory=lambda: os.getenv("VCBRAIN_ADMIN_PASSWORD", "admin12345"))
+    # Cuenta de prueba fija para el lado startup (para demos/QA, igual que el
+    # admin de arriba pero con rol "startup"). Cambiar antes de producción.
+    startup_test_username: str = field(default_factory=lambda: os.getenv("VCBRAIN_STARTUP_USERNAME", "startup1"))
+    startup_test_password: str = field(default_factory=lambda: os.getenv("VCBRAIN_STARTUP_PASSWORD", "startup1"))
     jwt_secret: str = field(default_factory=_stable_jwt_secret)
     # MVP: 8h para no cortar sesiones de demo; override con VCBRAIN_JWT_TTL_SECONDS
     jwt_ttl_seconds: int = field(default_factory=lambda: int(os.getenv("VCBRAIN_JWT_TTL_SECONDS", "28800")))
